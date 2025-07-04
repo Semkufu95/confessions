@@ -18,9 +18,8 @@ func PostComment(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-
-	user := c.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
+	
+	claims := c.Locals("user").(jwt.MapClaims)
 	userID := claims["user_id"].(string)
 
 	comment := models.Comment{

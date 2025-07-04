@@ -7,7 +7,7 @@ export default function Home() {
     const [newConfession, setNewConfession] = useState("");
 
     const fetchConfessions = async () => {
-        const res = await API.get("/confessions");
+        const res = await API.get("/api/confessions");
         setConfessions(res.data);
     };
 
@@ -15,7 +15,7 @@ export default function Home() {
         e.preventDefault();
         if (!newConfession.trim()) return;
 
-        await API.post("/confessions", { content: newConfession });
+        await API.post("/api/confessions", { content: newConfession });
         setNewConfession("");
         fetchConfessions(); // refresh list
     };

@@ -17,10 +17,10 @@ func SetupRoutes(app *fiber.App) {
 	protected := api.Group("/", middlewares.Protected())
 
 	// Confession routes
-	protected.Post("/confessions", controllers.CreateConfession)
-	protected.Get("/confessions", controllers.GetAllConfessions)
+	protected.Post("/api/confessions", controllers.CreateConfession)
+	protected.Get("/api/confessions", controllers.GetAllConfessions)
 
 	// Commenting routes
-	protected.Post("/confessions/:id/comments", controllers.PostComment)
-	protected.Get("/confessions/:id", controllers.GetConfessionWithComments)
+	protected.Post("/api/confessions/:id/comments", controllers.PostComment)
+	protected.Get("/api/confessions/:id", controllers.GetConfessionWithComments)
 }
