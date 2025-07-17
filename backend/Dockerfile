@@ -25,4 +25,4 @@ EXPOSE 5000
 
 #Run Command
 
-CMD ["./confessions]
+CMD ["./confessions"]
