@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import API from "../api/api";
 
 export default function ConfessionPage() {
@@ -23,19 +23,24 @@ export default function ConfessionPage() {
         }
     };
 
-    const fetchConfessionData = async () => {
+    const fetchConfessionData = useCallback( async () => {
         try {
-            const res = await API.get(`/api/confessions/${id}`);
+            const token = localStorage.getItem("accessToken");
+            const res = await API.get(`/api/confessions/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             setConfession(res.data.confession);
             setComments(res.data.comments);
         } catch (err) {
             console.error("Failed to load confession", err);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchConfessionData();
-    }, [id]);
+    }, [fetchConfessionData]);
 
     if (!confession) return <p className="text-center">Loading...</p>;
 
