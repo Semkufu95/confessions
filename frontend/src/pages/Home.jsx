@@ -17,7 +17,7 @@ export default function Home() {
 
         await API.post("/api/confessions", { content: newConfession });
         setNewConfession("");
-        fetchConfessions(); // refresh list
+        await fetchConfessions(); // refresh list
     };
 
     useEffect(() => {

@@ -13,3 +13,6 @@ type Comment struct {
 	Content      string    `gorm:"type:text;not null" json:"content"`
 	CreatedAt    time.Time `json:"created_at"`
 }
+
+// TODO: Add likes, boos.
+// TODO: Define reply?

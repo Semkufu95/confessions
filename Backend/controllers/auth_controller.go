@@ -15,8 +15,14 @@ type RegisterInput struct {
 
 func Register(c *fiber.Ctx) error {
 	var input RegisterInput
+
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	// validate email
+	if !utils.IsValidEmailFormat(input.Email) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid email"})
 	}
 
 	hash, err := utils.HashPassword(input.Password)
@@ -43,8 +49,6 @@ func Register(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": token})
 }
 
-// login
-
 func Login(c *fiber.Ctx) error {
 	var input RegisterInput
 	if err := c.BodyParser(&input); err != nil {
@@ -68,3 +72,5 @@ func Login(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"token": token})
 }
+
+// TODO: Add email authentication and verification, User receive email for verification
