@@ -15,7 +15,7 @@ func SetupRoutes(app *fiber.App) {
 	// ===== CONFESSIONS =====
 	confessions := protected.Group("/confessions")
 	confessions.Post("/", controllers.CreateConfession)                     // Create a confession
-	confessions.Get("/", controllers.GetAllConfessions)                     // Get all confessions
+	api.Get("/", controllers.GetAllConfessions)                             // Get all confessions
 	confessions.Put("/:id", controllers.UpdateConfession)                   // Update a confession
 	confessions.Delete("/:id", controllers.DeleteConfession)                // Delete a confession
 	confessions.Post("/:id/star", controllers.StarConfession)               // Star a confession

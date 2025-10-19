@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/redis/go-redis/v9"
@@ -19,4 +20,5 @@ func ConnectRedis(addr string) {
 	if err != nil {
 		log.Fatal("Failed to connect to Redis")
 	}
+	fmt.Println("Connected to Redis")
 }
