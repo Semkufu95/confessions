@@ -15,14 +15,14 @@ type RegisterInput struct {
 
 func Register(c *fiber.Ctx) error {
 	var input RegisterInput
-
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// validate email
-	if !utils.IsValidEmailFormat(input.Email) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid email"})
+	// validate email if exists
+	var existing models.User
+	if err := config.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "Email already exists"})
 	}
 
 	hash, err := utils.HashPassword(input.Password)
@@ -46,7 +46,15 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not generate token"})
 	}
 
-	return c.JSON(fiber.Map{"token": token})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"user": fiber.Map{
+			"id":        user.ID,
+			"username":  user.Username,
+			"email":     user.Email,
+			"createdAt": user.CreatedAt,
+		},
+		"access_token": token,
+	})
 }
 
 func Login(c *fiber.Ctx) error {
@@ -70,7 +78,15 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not generate token"})
 	}
 
-	return c.JSON(fiber.Map{"token": token})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"user": fiber.Map{
+			"id":        user.ID,
+			"username":  user.Username,
+			"email":     user.Email,
+			"createdAt": user.CreatedAt,
+		},
+		"access_token": token,
+	})
 }
 
 // TODO: Add email authentication and verification, User receive email for verification

@@ -11,7 +11,7 @@ export interface Confession {
     id: string;
     content: string;
     author: User | null;
-    timestamp: string;
+    timeStamp: string;
     likes: number;
     boos: number;
     stars: number;
@@ -38,7 +38,7 @@ export interface Reply {
     id: string;
     content: string;
     author: User;
-    timestamp: string;
+    timeStamp: string;
     likes: number;
     isLiked?: boolean;
 }
@@ -48,6 +48,7 @@ export interface Connection {
     title: string;
     description: string;
     author: User;
+    timeStamp: string;
     category?: 'love' | 'friendship';
     location?: string;
     age?: number;

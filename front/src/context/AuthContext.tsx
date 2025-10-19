@@ -37,42 +37,51 @@ export function AuthProvider({ children } : AuthProviderProps) {
 
     const login = async (email: string, password: string) => {
         setIsLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            const response = await fetch("http://localhost:5000/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-        //TODO: Replace mockUser with api call
-        const mockUser: User = {
-            id: '1',
-            username: email.split('@')[0],
-            email,
-            createdAt: new Date().toISOString(),
-        };
+            if (!response.ok) throw new Error("Invalid login credentials");
 
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        setIsLoading(false);
+            const data = await response.json();
+
+            setUser(data.user);
+            localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem("token", data.access_token);
+        } catch (error: any) {
+            console.error("Login Failed:", error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const signup = async (email: string, password: string, username: string) => {
+    const signup = async (email: string, password: string, _username: string) => {
         setIsLoading(true);
-        // TODO: Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const mockUser: User = {
-            id: Math.random().toString(36),
-            username,
-            email,
-            createdAt: new Date().toISOString(),
-        };
-
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        setIsLoading(false);
+        try {
+            const response = await fetch("http://localhost:5000/api/auth/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+            if (!response.ok) throw new Error("Invalid signup credentials");
+            const data = await response.json();
+            setUser(data.user);
+            localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem("token", data.access_token);
+        } catch (error: any) {
+            console.error("Failed to sign up:", error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
     };
 
     const value = {
