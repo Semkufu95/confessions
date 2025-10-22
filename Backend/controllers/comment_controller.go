@@ -19,15 +19,15 @@ func PostComment(c *fiber.Ctx) error {
 		Content string `json:"content"`
 	}
 
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.BodyParser(&input); err != nil || input.Content == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
 	claims := c.Locals("user").(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID := uuid.MustParse(claims["user_id"].(string))
 
 	comment := models.Comment{
-		UserID:       uuid.MustParse(userID),
+		UserID:       userID,
 		ConfessionID: uuid.MustParse(confessionID),
 		Content:      input.Content,
 		CreatedAt:    time.Now(),
@@ -37,26 +37,34 @@ func PostComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not post comment"})
 	}
 
-	// 🔹 Publish to Redis
+	// Preload author before returning
+	if err := config.DB.Preload("Author").First(&comment, "id = ?", comment.ID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load comment author"})
+	}
+
 	data, _ := json.Marshal(fiber.Map{"event": "comment_posted", "data": comment})
 	redis.Client.Publish(redis.Ctx, "comments:posted", data)
 
 	return c.JSON(comment)
 }
 
-// GetCommentsByConfession returns comments for a given confession
+// GetCommentsByConfession returns comments for a given confession, including author data
 func GetCommentsByConfession(c *fiber.Ctx) error {
 	confessionID := c.Params("id")
 
 	var comments []models.Comment
-	if err := config.DB.Where("confession_id = ?", confessionID).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := config.DB.
+		Preload("Author").
+		Where("confession_id = ?", confessionID).
+		Order("created_at asc").
+		Find(&comments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load comments"})
 	}
 
 	return c.JSON(comments)
 }
 
-// DeleteComment allows a user to delete their comment
+// DeleteComment allows a user to delete their own comment
 func DeleteComment(c *fiber.Ctx) error {
 	id := c.Params("id")
 	claims := c.Locals("user").(jwt.MapClaims)
@@ -75,7 +83,6 @@ func DeleteComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete comment"})
 	}
 
-	// 🔹 Publish event
 	data, _ := json.Marshal(fiber.Map{"event": "comment_deleted", "id": id})
 	redis.Client.Publish(redis.Ctx, "comments:deleted", data)
 
@@ -88,7 +95,7 @@ func UpdateComment(c *fiber.Ctx) error {
 	var input struct {
 		Content string `json:"content"`
 	}
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.BodyParser(&input); err != nil || input.Content == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
@@ -98,12 +105,17 @@ func UpdateComment(c *fiber.Ctx) error {
 	}
 
 	comment.Content = input.Content
+
 	if err := config.DB.Save(&comment).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update comment"})
 	}
 
-	// publish update event
-	data, _ := json.Marshal(comment)
+	// Reload with author after update
+	if err := config.DB.Preload("Author").First(&comment, "id = ?", comment.ID).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load updated comment author"})
+	}
+
+	data, _ := json.Marshal(fiber.Map{"event": "comment_updated", "data": comment})
 	redis.Client.Publish(redis.Ctx, "confessions:comment:updated", data)
 
 	return c.JSON(comment)

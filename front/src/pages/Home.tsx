@@ -21,7 +21,7 @@ export function Home() {
     const confessionsPerPage = 5;
 
     const todayConfessions = confessions.filter(confession => {
-        const confessionDate = new Date(confession.timestamp);
+        const confessionDate = new Date(confession.timeStamp);
         const today = new Date();
         return confessionDate.toDateString() === today.toDateString();
     });

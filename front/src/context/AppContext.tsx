@@ -30,7 +30,6 @@ interface AppProviderProps {
 }
 
 
-
 const mockConnections: Connection[] = [
     {
         id: '1',
@@ -102,12 +101,91 @@ export function AppProvider({ children }: AppProviderProps) {
     };
 
 
+
+
+    // const toggleLike = async (confessionId: string, type: 'like' | 'boo') => {
+    //     setConfessions(prev =>
+    //         prev.map(conf => {
+    //             if (conf.id !== confessionId) return conf;
+    //
+    //             // Toggle logic
+    //             if (type === 'like') {
+    //                 const isLiked = !conf.isLiked;
+    //                 const updatedLikes = conf.likes + (isLiked ? 1 : -1);
+    //
+    //                 return {
+    //                     ...conf,
+    //                     isLiked,
+    //                     likes: updatedLikes,
+    //                     // Optional: If user switches from boo to like
+    //                     isBooed: false,
+    //                     boos: conf.isBooed ? conf.boos - 1 : conf.boos,
+    //                 };
+    //             } else if (type === 'boo') {
+    //                 const isBooed = !conf.isBooed;
+    //                 const updatedBoos = conf.boos + (isBooed ? 1 : -1);
+    //
+    //                 return {
+    //                     ...conf,
+    //                     isBooed,
+    //                     boos: updatedBoos,
+    //                     // Optional: If user switches from like to boo
+    //                     isLiked: false,
+    //                     likes: conf.isLiked ? conf.likes - 1 : conf.likes,
+    //                 };
+    //             }
+    //
+    //             return conf;
+    //         })
+    //     );
+
+        // Send update to backend — errors are logged but won't break UI
+    //     try {
+    //         await ConfessionService.react(confessionId, type);
+    //     } catch (err) {
+    //         console.error('Failed to react to confession:', err);
+    //         // TODO: Rollback UI here if needed
+    //     }
+    // };
+
+
     const toggleLike = async (confessionId: string, type: 'like' | 'boo') => {
+        setConfessions(prev =>
+            prev.map(conf => {
+                if (conf.id !== confessionId) return conf;
+
+                if (type === 'like') {
+                    const isLiked = !conf.isLiked;
+                    const updatedLikes = conf.likes + (isLiked ? 1 : -1);
+
+                    return {
+                        ...conf,
+                        isLiked,
+                        likes: updatedLikes,
+                        isBooed: false,
+                        boos: conf.isBooed ? conf.boos - 1 : conf.boos,
+                    };
+                } else if (type === 'boo') {
+                    const isBooed = !conf.isBooed;
+                    const updatedBoos = conf.boos + (isBooed ? 1 : -1);
+
+                    return {
+                        ...conf,
+                        isBooed,
+                        boos: updatedBoos,
+                        isLiked: false,
+                        likes: conf.isLiked ? conf.likes - 1 : conf.likes,
+                    };
+                }
+
+                return conf;
+            })
+        );
+
         try {
-            const updated = await ConfessionService.react(confessionId, type);
-            setConfessions(prev =>
-                prev.map(conf => (conf.id === confessionId ? updated : conf))
-            );
+            await ConfessionService.react(confessionId, type);
+            const refreshedConfessions = await ConfessionService.getAll(); // refetch fresh data from backend
+            setConfessions(refreshedConfessions);
         } catch (err) {
             console.error('Failed to react to confession:', err);
         }

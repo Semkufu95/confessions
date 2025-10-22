@@ -12,7 +12,6 @@ type Comment struct {
 	UserID       uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	Content      string    `gorm:"type:text;not null" json:"content"`
 	CreatedAt    time.Time `json:"created_at"`
-}
 
-// TODO: Add likes, boos.
-// TODO: Define reply?
+	Author User `gorm:"foreignKey:UserID;references:ID" json:"author"` // ✅ correct
+}

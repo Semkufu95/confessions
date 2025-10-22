@@ -42,7 +42,7 @@ func InitDB() {
 	}
 
 	// Auto-migrate the models
-	err = db.AutoMigrate(&models.User{}, &models.Confession{}, &models.Comment{})
+	err = db.AutoMigrate(&models.User{}, &models.Confession{}, &models.Comment{}, &models.Reaction{})
 	if err != nil {
 		log.Fatal("Migration failed: ", err)
 	}

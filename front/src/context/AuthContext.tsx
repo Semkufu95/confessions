@@ -38,7 +38,7 @@ export function AuthProvider({ children } : AuthProviderProps) {
     const login = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const response = await fetch("http://localhost:5000/api/auth/login", {
+            const response = await fetch("http://localhost:5000/api/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -49,7 +49,7 @@ export function AuthProvider({ children } : AuthProviderProps) {
             const data = await response.json();
 
             setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem("token", data.access_token);
         } catch (error: any) {
             console.error("Login Failed:", error.message);
@@ -58,18 +58,18 @@ export function AuthProvider({ children } : AuthProviderProps) {
         }
     };
 
-    const signup = async (email: string, password: string, _username: string) => {
+    const signup = async (email: string, password: string, username: string) => {
         setIsLoading(true);
         try {
-            const response = await fetch("http://localhost:5000/api/auth/signup", {
+            const response = await fetch("http://localhost:5000/api/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email, password, username }),
             });
             if (!response.ok) throw new Error("Invalid signup credentials");
             const data = await response.json();
             setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data));
+            localStorage.setItem('user', JSON.stringify(data.user));
             localStorage.setItem("token", data.access_token);
         } catch (error: any) {
             console.error("Failed to sign up:", error.message);

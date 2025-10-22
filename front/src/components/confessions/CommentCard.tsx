@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MessageSquare, MoreHorizontal, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '../ui/Button';
-import type {Comment} from '../../types';
+import type { Comment } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { formatTimeAgo } from '../../utils/dateUtils';
 
@@ -39,6 +39,10 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
         onBoo?.(comment.id);
     };
 
+    const authorInitial = comment?.author?.username?.[0]?.toUpperCase() ?? 'U';
+    const authorUsername = comment?.author?.username ?? 'Unknown';
+    const replies = comment?.replies ?? [];
+
     return (
         <div className="space-y-3">
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
@@ -47,15 +51,15 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                     <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white text-xs font-medium">
-                {comment.author.username.charAt(0).toUpperCase()}
+                {authorInitial}
               </span>
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 tracking-tight">
-                                @{comment.author.username}
+                                @{authorUsername}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatTimeAgo(comment.timeStamp)}
+                                {formatTimeAgo(comment?.timeStamp ?? new Date().toISOString())}
                             </p>
                         </div>
                     </div>
@@ -67,7 +71,7 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
 
                 {/* Comment Content */}
                 <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed tracking-tight mb-3">
-                    {comment.content}
+                    {comment?.content}
                 </p>
 
                 {/* Comment Actions */}
@@ -87,7 +91,7 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                         disabled={!user}
                     >
                         <ThumbsUp size={12} />
-                        <span>{comment.likes}</span>
+                        <span>{comment?.likes ?? 0}</span>
                     </motion.button>
 
                     <motion.button
@@ -113,12 +117,12 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                         <span>Reply</span>
                     </button>
 
-                    {comment.replies.length > 0 && (
+                    {replies.length > 0 && (
                         <button
                             onClick={() => setShowReplies(!showReplies)}
                             className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 transition-colors"
                         >
-                            {showReplies ? 'Hide' : 'Show'} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
+                            {showReplies ? 'Hide' : 'Show'} {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
                         </button>
                     )}
                 </div>
@@ -166,48 +170,52 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
             </div>
 
             {/* Replies */}
-            {showReplies && comment.replies.length > 0 && (
+            {showReplies && replies.length > 0 && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="ml-6 space-y-2"
                 >
-                    {comment.replies.map((reply) => (
-                        <div key={reply.id} className="bg-gray-25 dark:bg-gray-800/25 rounded-xl p-3">
-                            <div className="flex items-start space-x-2">
-                                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-medium">
-                    {reply.author.username.charAt(0).toUpperCase()}
-                  </span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2 mb-1">
-                                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 tracking-tight">
-                                            @{reply.author.username}
-                                        </p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            {formatTimeAgo(reply.timeStamp)}
-                                        </p>
+                    {replies.map((reply) => {
+                        const replyInitial = reply?.author?.username?.[0]?.toUpperCase() ?? 'U';
+                        const replyUsername = reply?.author?.username ?? 'Unknown';
+                        return (
+                            <div key={reply.id} className="bg-gray-25 dark:bg-gray-800/25 rounded-xl p-3">
+                                <div className="flex items-start space-x-2">
+                                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-medium">
+                      {replyInitial}
+                    </span>
                                     </div>
-                                    <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed tracking-tight mb-2">
-                                        {reply.content}
-                                    </p>
-                                    <button
-                                        className={`
-                      flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors
-                      ${reply.isLiked
-                                            ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400'
-                                            : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                                        }
-                    `}
-                                    >
-                                        <ThumbsUp size={10} />
-                                        <span>{reply.likes}</span>
-                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center space-x-2 mb-1">
+                                            <p className="text-xs font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                                                @{replyUsername}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {formatTimeAgo(reply?.timeStamp ?? new Date().toISOString())}
+                                            </p>
+                                        </div>
+                                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed tracking-tight mb-2">
+                                            {reply?.content}
+                                        </p>
+                                        <button
+                                            className={`
+                        flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors
+                        ${reply?.isLiked
+                                                ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400'
+                                                : 'text-gray-500 dark:text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                            }
+                      `}
+                                        >
+                                            <ThumbsUp size={10} />
+                                            <span>{reply?.likes ?? 0}</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </motion.div>
             )}
         </div>

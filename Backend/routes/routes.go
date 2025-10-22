@@ -9,17 +9,17 @@ import (
 func SetupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 
-	// Authorization
+	// ===== AUTH (Public) =====
 	api.Post("/login", controllers.Login)
 	api.Post("/register", controllers.Register)
 
-	// Protected routes (require JWT)
+	// ===== PROTECTED ROUTES =====
 	protected := api.Group("/", middleware.RequireAuth)
 
 	// ===== CONFESSIONS =====
 	confessions := protected.Group("/confessions")
 	confessions.Post("/", controllers.CreateConfession)                     // Create a confession
-	api.Get("/", controllers.GetAllConfessions)                             // Get all confessions
+	confessions.Get("/", controllers.GetAllConfessions)                     // Get all confessions
 	confessions.Put("/:id", controllers.UpdateConfession)                   // Update a confession
 	confessions.Delete("/:id", controllers.DeleteConfession)                // Delete a confession
 	confessions.Post("/:id/star", controllers.StarConfession)               // Star a confession
@@ -28,12 +28,13 @@ func SetupRoutes(app *fiber.App) {
 
 	// ===== COMMENTS =====
 	comments := protected.Group("/comments")
-	comments.Post("/:id", controllers.PostComment)          // Add comment to confession
-	comments.Put("/:id", controllers.UpdateComment)         // Edit comment
-	comments.Delete("/:id", controllers.DeleteComment)      // Delete comment
-	comments.Post("/:id/react", controllers.ReactToComment) // Like/Boo a comment
+	comments.Post("/:id", controllers.PostComment)
+	comments.Put("/:id", controllers.UpdateComment)
+	comments.Delete("/:id", controllers.DeleteComment)
+	comments.Post("/:id/react", controllers.ReactToComment)
+	comments.Get("/:id", controllers.GetCommentsByConfession)
 
 	// ===== REACTIONS =====
 	reactions := protected.Group("/reactions")
-	reactions.Delete("/:id/remove", controllers.RemoveReaction) // Remove reaction
+	reactions.Delete("/:id/remove", controllers.RemoveReaction)
 }
