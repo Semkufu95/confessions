@@ -88,10 +88,26 @@ export function AppProvider({ children }: AppProviderProps) {
     const addComment = async (confessionId: string, content: string) => {
         try {
             const newComment = await ConfessionService.comment(confessionId, content);
+
+            // ✅ Ensure all expected fields exist
+            const safeComment = {
+                ...newComment,
+                replies: newComment.replies ?? [],
+                author: newComment.author ?? {
+                    id: 'anonymous',
+                    username: 'Anonymous',
+                },
+                likes: newComment.likes ?? 0,
+                isLiked: newComment.isLiked ?? false,
+                isBooed: newComment.isBooed ?? false,
+                timeStamp: newComment.timeStamp ?? new Date().toISOString(),
+            };
+
+            // ✅ Prepend new comment to keep latest on top
             setConfessions(prev =>
                 prev.map(confession =>
                     confession.id === confessionId
-                        ? { ...confession, comments: [...confession.comments, newComment] }
+                        ? { ...confession, comments: [safeComment, ...confession.comments] }
                         : confession
                 )
             );
@@ -99,6 +115,7 @@ export function AppProvider({ children }: AppProviderProps) {
             console.error('Failed to add comment:', error);
         }
     };
+
 
 
 
