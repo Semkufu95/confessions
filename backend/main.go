@@ -25,7 +25,7 @@ func main() {
 	config.InitDB()
 
 	// Connect to Redis
-	redis.ConnectRedis("localhost:6379")
+	redis.ConnectRedis("redis:6379")
 
 	// Start Redis subscriber (background worker)
 	redis.StartSubscriber()
@@ -75,7 +75,7 @@ func main() {
 	// Server port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = ":5000"
 	}
 	log.Fatal(app.Listen(":" + port))
 }

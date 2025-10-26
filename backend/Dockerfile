@@ -20,5 +20,10 @@ COPY . .
 #Expose Fibers default port
 EXPOSE 5000
 
+# Install Air for live reloading
+RUN go install github.com/air-verse/air@latest
+ENV PATH="$PATH:/root/go/bin"
+
+
 #Run Command with Air
 CMD ["air", "-c", ".air.toml"]

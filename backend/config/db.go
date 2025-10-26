@@ -41,6 +41,9 @@ func InitDB() {
 		log.Fatal("Failed to connect to the database: ", err)
 	}
 
+	//Create uuid-extension before migration
+	UuidExecution(db)
+
 	// Auto-migrate the models
 	err = db.AutoMigrate(&models.User{}, &models.Confession{}, &models.Comment{}, &models.Reaction{})
 	if err != nil {

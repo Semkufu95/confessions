@@ -18,7 +18,7 @@ func ConnectRedis(addr string) {
 
 	_, err := Client.Ping(Ctx).Result()
 	if err != nil {
-		log.Fatal("Failed to connect to Redis")
+		log.Fatal("Huuh! Failed to connect to Redis")
 	}
 	fmt.Println("Connected to Redis")
 }
