@@ -8,6 +8,12 @@ export default defineConfig({
       exclude: ['lucide-react'],
     },
     server: {
+      hmr: {
+          protocol: 'wss',
+          host: 'www.confessions.africa',
+          port: 443,
+      },
+      host: 'true',
       allowedHosts: ['confessions.africa'],
     },
 });
