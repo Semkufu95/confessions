@@ -49,7 +49,7 @@ export interface Connection {
     description: string;
     author: User;
     timeStamp: string;
-    category?: 'love' | 'friendship';
+    category: 'love' | 'friendship';
     location?: string;
     age?: number;
     interests: string[];

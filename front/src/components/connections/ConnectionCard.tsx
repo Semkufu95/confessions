@@ -16,8 +16,6 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
         friendship: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
     };
 
-    // @ts-ignore
-    // @ts-ignore
     return (
         <Card hover className="p-6">
             <div className="space-y-4">

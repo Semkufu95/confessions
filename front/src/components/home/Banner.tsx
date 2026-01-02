@@ -1,6 +1,6 @@
 
 import { motion } from "framer-motion";
-import { MessageSquare, Users, Heart, Star, Shield, Infinity} from 'lucide-react';
+import { MessageSquare, Users, Heart, Star, Shield} from 'lucide-react';
 
 export function Banner() {
     const features = [
