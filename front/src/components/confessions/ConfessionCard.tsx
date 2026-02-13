@@ -193,7 +193,7 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
                             aria-label="View comments"
                         >
                             <MessageSquare size={16} />
-                            <span>{confession.comments?.length ?? 0}</span>
+                            <span>{confession.commentsCount ?? confession.comments?.length ?? 0}</span>
                         </Button>
 
                         {/* Share */}

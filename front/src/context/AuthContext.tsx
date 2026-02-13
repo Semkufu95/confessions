@@ -1,22 +1,32 @@
-
-import React, {createContext, useState, useContext, useEffect} from "react";
-import type {User} from "../types";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { api } from "../api/api";
+import type { User } from "../types";
 
 interface AuthContextType {
     user: User | null;
     login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, username: string) =>  Promise<void>;
+    signup: (email: string, password: string, username: string) => Promise<void>;
     logout: () => void;
     isLoading: boolean;
-
 }
+
+type AuthResponse = {
+    user: {
+        id: string;
+        username: string;
+        email: string;
+        created_at?: string;
+        createdAt?: string;
+    };
+    access_token: string;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
     const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within AuthProvider');
+    if (!context) {
+        throw new Error("useAuth must be used within AuthProvider");
     }
     return context;
 }
@@ -25,35 +35,38 @@ interface AuthProviderProps {
     children: React.ReactNode;
 }
 
-export function AuthProvider({ children } : AuthProviderProps) {
+function normalizeUser(user: AuthResponse["user"]): User {
+    return {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.created_at || user.createdAt || new Date().toISOString(),
+    };
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = localStorage.getItem("user");
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch {
+                localStorage.removeItem("user");
+            }
         }
     }, []);
 
     const login = async (email: string, password: string) => {
         setIsLoading(true);
         try {
-            const response = await fetch("/api/login", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({email, password}),
-            });
-
-            if (!response.ok) throw new Error("Invalid login credentials");
-
-            const data = await response.json();
-
-            setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.setItem("token", data.access_token);
-        } catch (error: any) {
-            console.error("Login Failed:", error.message);
+            const response = await api.post<AuthResponse>("/login", { email, password });
+            const nextUser = normalizeUser(response.data.user);
+            setUser(nextUser);
+            localStorage.setItem("user", JSON.stringify(nextUser));
+            localStorage.setItem("token", response.data.access_token);
         } finally {
             setIsLoading(false);
         }
@@ -62,18 +75,11 @@ export function AuthProvider({ children } : AuthProviderProps) {
     const signup = async (email: string, password: string, username: string) => {
         setIsLoading(true);
         try {
-            const response = await fetch("/api/register", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({email, password, username}),
-            });
-            if (!response.ok) throw new Error("Invalid signup credentials");
-            const data = await response.json();
-            setUser(data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            localStorage.setItem("token", data.access_token);
-        } catch (error: any) {
-            console.error("Failed to sign up:", error.message);
+            const response = await api.post<AuthResponse>("/register", { email, password, username });
+            const nextUser = normalizeUser(response.data.user);
+            setUser(nextUser);
+            localStorage.setItem("user", JSON.stringify(nextUser));
+            localStorage.setItem("token", response.data.access_token);
         } finally {
             setIsLoading(false);
         }
@@ -81,21 +87,20 @@ export function AuthProvider({ children } : AuthProviderProps) {
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
     };
 
-    const value = {
-        user,
-        login,
-        signup,
-        logout,
-        isLoading,
-    };
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
+    const value = useMemo(
+        () => ({
+            user,
+            login,
+            signup,
+            logout,
+            isLoading,
+        }),
+        [user, isLoading]
     );
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

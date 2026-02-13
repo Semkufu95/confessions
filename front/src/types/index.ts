@@ -17,6 +17,7 @@ export interface Confession {
     stars: number;
     shares: number;
     comments: Comment[];
+    commentsCount: number;
     isLiked?: boolean;
     isBooed?: boolean;
     isStarred?: boolean;
@@ -30,8 +31,10 @@ export interface Comment {
     author: User;
     timeStamp: string;
     likes: number;
+    boos?: number;
     replies: Reply[];
     isLiked?: boolean;
+    isBooed?: boolean;
 }
 
 export interface Reply {

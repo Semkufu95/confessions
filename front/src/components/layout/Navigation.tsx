@@ -1,7 +1,7 @@
 
 import {HeartIcon, Home, HomeIcon, MessageSquare, Send, User, Users} from "lucide-react";
 import {useAuth} from "../../context/AuthContext.tsx";
-import {NavLink, useLocation} from "react-router-dom";
+import {NavLink, useLocation, useNavigate} from "react-router-dom";
 import { motion } from "framer-motion";
 
 const navItems = [
@@ -15,8 +15,9 @@ const navItems = [
 export function Navigation() {
     const { user } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
 
-    if (location.pathname === 'login' || location.pathname === 'signup') {
+    if (location.pathname === '/login' || location.pathname === '/signup') {
         return null;
     }
 
@@ -61,7 +62,7 @@ export function Navigation() {
                     {!user && (
                         <motion.button
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => window.location.href = '/login'}
+                            onClick={() => navigate('/login')}
                             className="flex flex-col items-center justify-center p-3 rounded-2xl text-gray-500 dark:text-gray-400
                             hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 tracking-tight"
                         >
@@ -120,7 +121,7 @@ export function Navigation() {
                             <motion.button
                                 whileHover={{ x: 4 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => window.location.href = '/login'}
+                                onClick={() => navigate('/login')}
                                 className="w-full flex items-center space-x-3 p-3 rounded-2xl text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200 tracking-tight font-medium"
                             >
                                 <User size={20} />

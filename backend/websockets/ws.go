@@ -23,3 +23,13 @@ func Broadcast(message string) {
 		}
 	}
 }
+
+func Shutdown() {
+	Mu.Lock()
+	defer Mu.Unlock()
+
+	for c := range Clients {
+		_ = c.Close()
+		delete(Clients, c)
+	}
+}

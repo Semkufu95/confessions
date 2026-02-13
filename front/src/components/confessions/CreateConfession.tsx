@@ -8,7 +8,7 @@ import { TextArea } from '../ui/TextArea';
 interface CreateConfessionProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (content: string, category: string, isAnonymous: boolean) => void;
+    onSubmit: (content: string, category: string, isAnonymous: boolean) => Promise<void>;
 }
 
 export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfessionProps) {
@@ -30,13 +30,15 @@ export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfession
         if (!content.trim()) return;
 
         setIsSubmitting(true);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-        onSubmit(content, category, isAnonymous);
-        setContent('');
-        setCategory('general');
-        setIsAnonymous(true);
-        setIsSubmitting(false);
-        onClose();
+        try {
+            await onSubmit(content, category, isAnonymous);
+            setContent('');
+            setCategory('general');
+            setIsAnonymous(true);
+            onClose();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (

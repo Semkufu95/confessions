@@ -11,7 +11,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 
 export function Home() {
-    const { confessions, addConfession } = useApp();
+    const { confessions, addConfession, isLoadingConfessions, confessionsError, refreshConfessions } = useApp();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'today' | 'trending'>('today');
@@ -27,15 +27,15 @@ export function Home() {
         return confessionDate.toDateString() === today.toDateString();
     });
 
-    const trendingConfessions = confessions.filter(confession => confession.trending);
+    const trendingConfessions = confessions.filter(confession => confession.trending || confession.likes >= 5 || confession.stars >= 3);
 
     const allConfessions = activeTab === 'today' ? todayConfessions : trendingConfessions;
     const totalPages = Math.ceil(allConfessions.length / confessionsPerPage);
     const startIndex = (currentPage - 1) * confessionsPerPage;
     const displayedConfessions = allConfessions.slice(0, startIndex + confessionsPerPage);
 
-    const handleCreateConfession = (content: string, category: string, isAnonymous: boolean) => {
-        addConfession(content, category, isAnonymous);
+    const handleCreateConfession = async (content: string, category: string, isAnonymous: boolean) => {
+        await addConfession(content, category, isAnonymous);
     };
 
     const loadMore = async () => {
@@ -146,6 +146,21 @@ export function Home() {
                     transition={{ delay: 0.2 }}
                     className="space-y-6"
                 >
+                    {isLoadingConfessions && (
+                        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                            Loading confessions...
+                        </div>
+                    )}
+
+                    {confessionsError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                            <p>{confessionsError}</p>
+                            <Button variant="ghost" size="sm" className="mt-2" onClick={() => void refreshConfessions()}>
+                                Retry
+                            </Button>
+                        </div>
+                    )}
+
                     {allConfessions.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
@@ -229,7 +244,7 @@ export function Home() {
                 <CreateConfession
                     isOpen={showNewConfession}
                     onClose={() => setShowNewConfession(false)}
-                    onSubmit={handleCreateConfession}
+                    onSubmit={(content, category, isAnonymous) => handleCreateConfession(content, category, isAnonymous)}
                 />
             </div>
         </div>

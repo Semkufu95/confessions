@@ -21,8 +21,9 @@ export function Login() {
         try {
             await login(email, password);
             navigate('/');
-        } catch (err) {
-            setError('Invalid credentials. Please try again.');
+        } catch (err: any) {
+            const message = err?.response?.data?.error || 'Invalid credentials. Please try again.';
+            setError(message);
         }
     };
 

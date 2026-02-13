@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, MessageSquare, Share2, Star, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
@@ -13,10 +13,26 @@ export function ConfessionDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { confessions, toggleStar, toggleLike, addComment, toggleCommentLike } = useApp();
+    const { confessions, toggleStar, toggleLike, addComment, toggleCommentLike, getConfessionById } = useApp();
     const [newComment, setNewComment] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const confession = confessions.find(c => c.id === id);
+
+    useEffect(() => {
+        if (!id) return;
+        setIsLoading(true);
+        void getConfessionById(id).finally(() => setIsLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id]);
+
+    if (isLoading && !confession) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Loading confession...</p>
+            </div>
+        );
+    }
 
     if (!confession) {
         return (
@@ -36,19 +52,20 @@ export function ConfessionDetail() {
         );
     }
 
-    const handleAction = (action: () => void) => {
+    const handleAction = async (action: () => Promise<void>) => {
         if (!user) {
             navigate('/login');
             return;
         }
-        action();
+        await action();
     };
 
-    const handleCommentSubmit = (e: React.FormEvent) => {
+    const handleCommentSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim() || !user) return;
 
-        addComment(confession.id, newComment);
+        await addComment(confession.id, newComment);
+        await getConfessionById(confession.id);
         setNewComment('');
     };
 
@@ -57,13 +74,14 @@ export function ConfessionDetail() {
         console.log('Adding reply to comment:', commentId, content);
     };
 
-    const handleCommentLike = (commentId: string, type: 'like' | 'boo' = 'like') => {
+    const handleCommentLike = async (commentId: string, type: 'like' | 'boo' = 'like') => {
         if (!user) return;
-        toggleCommentLike(confession.id, commentId, type);
+        await toggleCommentLike(confession.id, commentId, type);
+        await getConfessionById(confession.id);
     };
 
-    const handleCommentBoo = (commentId: string) => {
-        handleCommentLike(commentId, 'boo');
+    const handleCommentBoo = async (commentId: string) => {
+        await handleCommentLike(commentId, 'boo');
     };
 
     const categoryColors = {
@@ -149,7 +167,7 @@ export function ConfessionDetail() {
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleAction(() => toggleLike(confession.id, 'like'))}
+                                        onClick={() => void handleAction(() => toggleLike(confession.id, 'like'))}
                                         className={`
                       flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-colors
                       ${confession.isLiked
@@ -167,7 +185,7 @@ export function ConfessionDetail() {
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleAction(() => toggleLike(confession.id, 'boo'))}
+                                        onClick={() => void handleAction(() => toggleLike(confession.id, 'boo'))}
                                         className={`
                       flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-colors
                       ${confession.isBooed
@@ -187,7 +205,7 @@ export function ConfessionDetail() {
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleAction(() => toggleStar(confession.id))}
+                                        onClick={() => void handleAction(() => toggleStar(confession.id))}
                                         className={`
                       flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition-colors
                       ${confession.isStarred
@@ -261,11 +279,11 @@ export function ConfessionDetail() {
                     <div className="flex items-center space-x-2">
                         <MessageSquare size={20} className="text-gray-600 dark:text-gray-400" />
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-                            Comments ({confession.comments.length})
+                            Comments ({confession.commentsCount ?? confession.comments.length})
                         </h2>
                     </div>
 
-                    {confession.comments.length === 0 ? (
+                    {(confession.comments?.length ?? 0) === 0 ? (
                         <Card className="p-8 text-center">
                             <MessageSquare size={32} className="mx-auto text-gray-400 mb-3" />
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
@@ -285,7 +303,7 @@ export function ConfessionDetail() {
                         </Card>
                     ) : (
                         <div className="space-y-4">
-                            {confession.comments.map((comment, index) => (
+                            {(confession.comments || []).map((comment, index) => (
                                 <motion.div
                                     key={comment.id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -295,8 +313,8 @@ export function ConfessionDetail() {
                                     <CommentCard
                                         comment={comment}
                                         onReply={handleReply}
-                                        onLike={handleCommentLike}
-                                        onBoo={handleCommentBoo}
+                                        onLike={(commentId) => void handleCommentLike(commentId, "like")}
+                                        onBoo={(commentId) => void handleCommentBoo(commentId)}
                                     />
                                 </motion.div>
                             ))}
@@ -304,7 +322,7 @@ export function ConfessionDetail() {
                     )}
                 </motion.div>
 
-                {!user && confession.comments.length > 0 && (
+                {!user && (confession.comments?.length ?? 0) > 0 && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}

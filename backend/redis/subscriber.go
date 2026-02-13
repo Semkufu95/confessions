@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"sync"
 )
 
-var ctx = context.Background()
-
 // StartSubscriber listens to Redis pub/sub channels and invalidates cache keys.
-func StartSubscriber() {
+func StartSubscriber(ctx context.Context, wg *sync.WaitGroup) {
 	pubsub := Client.Subscribe(ctx,
 		"confessions:confession:created",
 		"confessions:confession:updated",
@@ -21,30 +20,73 @@ func StartSubscriber() {
 		"confessions:reaction:updated",
 		"confessions:reaction:removed",
 	)
-
 	ch := pubsub.Channel()
+
+	wg.Add(1)
 	go func() {
-		for msg := range ch {
-			switch msg.Channel {
-			case "confessions:confession:created", "confessions:confession:deleted":
-				Client.Del(ctx, "confessions:all")
-			case "confessions:confession:updated", "confessions:confession:starred":
-				if id := stringValueFromPayload(msg.Payload, "id"); id != "" {
-					Client.Del(ctx, "confessions:"+id+":with_comments")
+		defer wg.Done()
+		defer func() {
+			if err := pubsub.Close(); err != nil {
+				log.Printf("redis subscriber close error: %v", err)
+			}
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					return
 				}
-			case "confessions:comment:created", "confessions:comment:updated", "confessions:comment:deleted":
-				if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
-					Client.Del(ctx, "confessions:"+confessionID+":with_comments")
+				switch msg.Channel {
+				case "confessions:confession:created", "confessions:confession:deleted":
+					Client.Del(Ctx, "confessions:all")
+				case "confessions:confession:updated", "confessions:confession:starred":
+					if id := stringValueFromPayload(msg.Payload, "id"); id != "" {
+						Client.Del(Ctx, "confessions:"+id+":with_comments")
+					}
+				case "confessions:comment:created", "confessions:comment:updated", "confessions:comment:deleted":
+					if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
+						Client.Del(Ctx, "confessions:"+confessionID+":with_comments")
+					}
+				case "confessions:reaction:updated", "confessions:reaction:removed":
+					if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
+						Client.Del(Ctx, "confessions:"+confessionID+":with_comments")
+					}
+					if commentID := stringValueFromPayload(msg.Payload, "comment_id"); commentID != "" {
+						Client.Del(Ctx, "comments:"+commentID)
+					}
+				default:
+					log.Printf("Unhandled channel: %s", msg.Channel)
 				}
-			case "confessions:reaction:updated", "confessions:reaction:removed":
-				if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
-					Client.Del(ctx, "confessions:"+confessionID+":with_comments")
+			}
+		}
+	}()
+}
+
+// StartWebsocketBroadcaster relays Redis events to websocket clients.
+func StartWebsocketBroadcaster(ctx context.Context, wg *sync.WaitGroup, broadcast func(string)) {
+	pubsub := Client.PSubscribe(ctx, "confessions:*")
+	ch := pubsub.Channel()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer func() {
+			if err := pubsub.Close(); err != nil {
+				log.Printf("redis websocket broadcaster close error: %v", err)
+			}
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					return
 				}
-				if commentID := stringValueFromPayload(msg.Payload, "comment_id"); commentID != "" {
-					Client.Del(ctx, "comments:"+commentID)
-				}
-			default:
-				log.Printf("Unhandled channel: %s", msg.Channel)
+				broadcast(msg.Payload)
 			}
 		}
 	}()

@@ -1,45 +1,111 @@
-import { api } from "../api/api.ts";
+import { api } from "../api/api";
+import type { Comment, Confession, User } from "../types";
+
+type BackendUser = {
+    id: string;
+    username: string;
+    email?: string;
+    created_at?: string;
+    createdAt?: string;
+};
+
+type BackendComment = {
+    id: string;
+    content: string;
+    likes?: number;
+    boos?: number;
+    created_at?: string;
+    author?: BackendUser;
+};
+
+type BackendConfession = {
+    id: string;
+    content: string;
+    likes?: number;
+    boos?: number;
+    stars?: number;
+    comments?: number;
+    category?: Confession["category"];
+    created_at?: string;
+};
+
+function normalizeUser(user?: BackendUser): User {
+    return {
+        id: user?.id || "anonymous",
+        username: user?.username || "Anonymous",
+        email: user?.email || "",
+        createdAt: user?.created_at || user?.createdAt || new Date().toISOString(),
+    };
+}
+
+function normalizeComment(comment: BackendComment): Comment {
+    return {
+        id: comment.id,
+        content: comment.content,
+        author: normalizeUser(comment.author),
+        timeStamp: comment.created_at || new Date().toISOString(),
+        likes: comment.likes || 0,
+        boos: comment.boos || 0,
+        replies: [],
+        isLiked: false,
+        isBooed: false,
+    };
+}
+
+function normalizeConfession(confession: BackendConfession, comments: Comment[] = []): Confession {
+    return {
+        id: confession.id,
+        content: confession.content,
+        author: null,
+        timeStamp: confession.created_at || new Date().toISOString(),
+        likes: confession.likes || 0,
+        boos: confession.boos || 0,
+        stars: confession.stars || 0,
+        shares: 0,
+        category: confession.category || "general",
+        trending: false,
+        comments,
+        commentsCount: confession.comments ?? comments.length,
+        isLiked: false,
+        isBooed: false,
+        isStarred: false,
+    };
+}
 
 export const ConfessionService = {
-    // Fetch all confessions
-    async getAll() {
-        const res = await api.get("/confessions");
-        return res.data.map((item: any) => ({
-            id: item.id,
-            content: item.content,
-            author: item.author || null,
-            timeStamp: item.created_at || item.timeStamp,
-            likes: item.likes || 0,
-            boos: item.boos || 0,
-            stars: item.stars || 0,
-            shares: item.shares || 0,
-            category: item.category,
-            comments: (item.comments || []).map((c: any) => ({
-                id: c.id,
-                content: c.content,
-                author: c.author,
-                timeStamp: c.created_at || c.timeStamp,
-                likes: c.likes || 0,
-                replies: c.replies || [],
-            })),
-        }));
+    async getAll(): Promise<Confession[]> {
+        const res = await api.get<BackendConfession[]>("/confessions");
+        return res.data.map((item) => normalizeConfession(item));
     },
 
-    // Create a new confession
-    async create(content: string, category: string, isAnonymous: boolean) {
-        const res = await api.post("/confessions", { content, category, isAnonymous });
-        return res.data;
+    async getWithComments(id: string): Promise<Confession> {
+        const res = await api.get<{ confession: BackendConfession; comments: BackendComment[] }>(`/confessions/${id}/comments`);
+        const comments = (res.data.comments || []).map(normalizeComment);
+        return normalizeConfession(res.data.confession, comments);
     },
 
-    // React to a confession (like/boo)
-    async react(id: string, type: "like" | "boo") {
-        const res = await api.post(`/confessions/${id}/react`, { type });
-        return res.data;
+    async create(content: string, category: string, isAnonymous: boolean): Promise<Confession> {
+        const res = await api.post<BackendConfession>("/confessions/", { content, category, isAnonymous });
+        return normalizeConfession(res.data);
     },
 
-    // Add a comment to a confession
-    async comment(confessionId: string, content: string) {
-        const res = await api.post(`/comments/${confessionId}`, { content });
-        return res.data;
+    async star(id: string): Promise<Confession> {
+        const res = await api.post<BackendConfession>(`/confessions/${id}/star`);
+        return normalizeConfession(res.data);
+    },
+
+    async reactConfession(id: string, type: "like" | "boo"): Promise<Confession> {
+        const res = await api.post<BackendConfession>(`/confessions/${id}/react`, { type });
+        return normalizeConfession(res.data);
+    },
+
+    async comment(confessionId: string, content: string): Promise<Comment> {
+        const res = await api.post<BackendComment>(`/comments/${confessionId}`, { content });
+        return normalizeComment(res.data);
+    },
+
+    async reactComment(commentId: string, type: "like" | "boo"): Promise<Comment> {
+        const res = await api.post<BackendComment>(`/comments/${commentId}/react`, { type });
+        return normalizeComment(res.data);
     },
 };

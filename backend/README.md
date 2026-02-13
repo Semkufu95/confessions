@@ -40,6 +40,8 @@ Optional:
 - `PORT`: API server port. Default: `5000`.
 - `REDIS_ADDR`: Redis host:port. Default: `redis:6379`.
 - `CORS_ALLOW_ORIGINS`: CORS allowlist string for Fiber CORS middleware. Default: `http://localhost:5173`.
+- `RATE_LIMIT_MAX`: max requests per rate-limit window per client IP. Default: `100`.
+- `RATE_LIMIT_WINDOW`: rate-limit window duration (Go duration format). Default: `1m`.
 
 Example `.env`:
 
@@ -49,6 +51,8 @@ JWT_SECRET=replace-with-a-long-random-secret
 PORT=5000
 REDIS_ADDR=localhost:6379
 CORS_ALLOW_ORIGINS=http://localhost:5173
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=1m
 ```
 
 ## Run locally
@@ -110,6 +114,7 @@ Protected (requires `Authorization: Bearer <token>`):
 - Controllers publish events to Redis channels in the `confessions:*` namespace.
 - `redis.StartSubscriber()` listens to those channels and invalidates cache keys.
 - A Redis pattern subscription in `main.go` rebroadcasts payloads to all connected WebSocket clients.
+- On shutdown, Redis subscriber and websocket broadcaster goroutines are canceled via context.
 
 ## Security and operational notes
 
@@ -117,6 +122,7 @@ Protected (requires `Authorization: Bearer <token>`):
 - Mutation endpoints enforce ownership checks for update/delete actions.
 - `uuid-ossp` extension is created during startup for UUID defaults.
 - Auto-migration runs at startup; use controlled migrations for strict production governance.
+- Graceful shutdown handles `SIGINT`/`SIGTERM` and closes Fiber, Redis, and websocket connections.
 
 ## Known limitations
 
