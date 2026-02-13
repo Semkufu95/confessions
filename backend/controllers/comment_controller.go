@@ -8,7 +8,6 @@ import (
 	"github.com/Semkufu95/confessions/Backend/models"
 	"github.com/Semkufu95/confessions/Backend/redis"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -23,12 +22,22 @@ func PostComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := uuid.MustParse(claims["user_id"].(string))
+	userIDStr, ok := c.Locals("user_id").(string)
+	if !ok || userIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	parsedConfessionID, err := uuid.Parse(confessionID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid confession id"})
+	}
 
 	comment := models.Comment{
 		UserID:       userID,
-		ConfessionID: uuid.MustParse(confessionID),
+		ConfessionID: parsedConfessionID,
 		Content:      input.Content,
 		CreatedAt:    time.Now(),
 	}
@@ -42,8 +51,8 @@ func PostComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load comment author"})
 	}
 
-	data, _ := json.Marshal(fiber.Map{"event": "comment_posted", "data": comment})
-	redis.Client.Publish(redis.Ctx, "comments:posted", data)
+	data, _ := json.Marshal(comment)
+	redis.Client.Publish(redis.Ctx, "confessions:comment:created", data)
 
 	return c.JSON(comment)
 }
@@ -67,8 +76,10 @@ func GetCommentsByConfession(c *fiber.Ctx) error {
 // DeleteComment allows a user to delete their own comment
 func DeleteComment(c *fiber.Ctx) error {
 	id := c.Params("id")
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
 
 	var comment models.Comment
 	if err := config.DB.First(&comment, "id = ?", id).Error; err != nil {
@@ -83,8 +94,8 @@ func DeleteComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete comment"})
 	}
 
-	data, _ := json.Marshal(fiber.Map{"event": "comment_deleted", "id": id})
-	redis.Client.Publish(redis.Ctx, "comments:deleted", data)
+	data, _ := json.Marshal(fiber.Map{"id": id, "confession_id": comment.ConfessionID})
+	redis.Client.Publish(redis.Ctx, "confessions:comment:deleted", data)
 
 	return c.JSON(fiber.Map{"message": "Comment deleted"})
 }
@@ -104,6 +115,14 @@ func UpdateComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Comment not found"})
 	}
 
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	if comment.UserID.String() != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You cannot update this comment"})
+	}
+
 	comment.Content = input.Content
 
 	if err := config.DB.Save(&comment).Error; err != nil {
@@ -115,7 +134,7 @@ func UpdateComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load updated comment author"})
 	}
 
-	data, _ := json.Marshal(fiber.Map{"event": "comment_updated", "data": comment})
+	data, _ := json.Marshal(comment)
 	redis.Client.Publish(redis.Ctx, "confessions:comment:updated", data)
 
 	return c.JSON(comment)

@@ -18,14 +18,22 @@ func RequireAuth(c *fiber.Ctx) error {
 		tokenString = tokenString[7:]
 	}
 
-	// Parse JWT
-	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+	claims := jwt.MapClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid token")
+		}
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
 
-	c.Locals("user", token.Claims)
+	userID, ok := claims["user_id"].(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+
+	c.Locals("user_id", userID)
 	return c.Next()
 }

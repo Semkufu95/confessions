@@ -8,7 +8,6 @@ import (
 	"github.com/Semkufu95/confessions/Backend/models"
 	"github.com/Semkufu95/confessions/Backend/redis"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -23,11 +22,17 @@ func CreateConfession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	parsedUserID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
 
 	confession := models.Confession{
-		UserID:    uuid.MustParse(userID),
+		UserID:    parsedUserID,
 		Content:   input.Content,
 		CreatedAt: time.Now(),
 	}
@@ -37,8 +42,8 @@ func CreateConfession(c *fiber.Ctx) error {
 	}
 
 	// 🔹 Publish event to Redis for real-time updates
-	data, _ := json.Marshal(fiber.Map{"event": "confession_created", "data": confession})
-	redis.Client.Publish(redis.Ctx, "confessions:created", data)
+	data, _ := json.Marshal(confession)
+	redis.Client.Publish(redis.Ctx, "confessions:confession:created", data)
 
 	return c.JSON(confession)
 }
@@ -68,8 +73,10 @@ func GetConfessionByID(c *fiber.Ctx) error {
 // DeleteConfession allows deleting a confession (owner only)
 func DeleteConfession(c *fiber.Ctx) error {
 	id := c.Params("id")
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
 
 	var confession models.Confession
 	if err := config.DB.First(&confession, "id = ?", id).Error; err != nil {
@@ -86,8 +93,8 @@ func DeleteConfession(c *fiber.Ctx) error {
 	}
 
 	// 🔹 Publish delete event
-	data, _ := json.Marshal(fiber.Map{"event": "confession_deleted", "id": id})
-	redis.Client.Publish(redis.Ctx, "confessions:deleted", data)
+	data, _ := json.Marshal(fiber.Map{"id": id})
+	redis.Client.Publish(redis.Ctx, "confessions:confession:deleted", data)
 
 	return c.JSON(fiber.Map{"message": "Confession deleted"})
 }
@@ -105,6 +112,14 @@ func UpdateConfession(c *fiber.Ctx) error {
 	var confession models.Confession
 	if err := config.DB.First(&confession, "id = ?", id).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Confession not found"})
+	}
+
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	if confession.UserID.String() != userID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You cannot update this confession"})
 	}
 
 	confession.Content = input.Content

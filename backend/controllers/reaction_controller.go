@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/Semkufu95/confessions/Backend/config"
 	"github.com/Semkufu95/confessions/Backend/models"
 	"github.com/Semkufu95/confessions/Backend/redis"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ReactionInput struct {
@@ -25,27 +26,44 @@ func ReactToConfession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid reaction type"})
 	}
 
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := uuid.MustParse(claims["user_id"].(string))
+	userIDStr, ok := c.Locals("user_id").(string)
+	if !ok || userIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	parsedConfessionID, err := uuid.Parse(confessionID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid confession id"})
+	}
 
 	var reaction models.Reaction
-	err := config.DB.Where("user_id = ? AND confession_id = ?", userID, confessionID).First(&reaction).Error
+	err = config.DB.Where("user_id = ? AND confession_id = ?", userID, parsedConfessionID).First(&reaction).Error
 
 	if err == nil {
 		// Update existing reaction
 		reaction.Type = input.Type
 		reaction.UpdatedAt = time.Now()
-		config.DB.Save(&reaction)
+		if err := config.DB.Save(&reaction).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update reaction"})
+		}
 	} else {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query reaction"})
+		}
 		// Create new reaction
 		newReaction := models.Reaction{
 			UserID:       userID,
-			ConfessionID: uuidPtr(uuid.MustParse(confessionID)),
+			ConfessionID: uuidPtr(parsedConfessionID),
 			Type:         input.Type,
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
 		}
-		config.DB.Create(&newReaction)
+		if err := config.DB.Create(&newReaction).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create reaction"})
+		}
 		reaction = newReaction
 	}
 
@@ -53,26 +71,34 @@ func ReactToConfession(c *fiber.Ctx) error {
 	var likesCount int64
 	var boosCount int64
 
-	config.DB.Model(&models.Reaction{}).
+	if err := config.DB.Model(&models.Reaction{}).
 		Where("confession_id = ? AND type = ?", confessionID, "like").
-		Count(&likesCount)
+		Count(&likesCount).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count reactions"})
+	}
 
-	config.DB.Model(&models.Reaction{}).
+	if err := config.DB.Model(&models.Reaction{}).
 		Where("confession_id = ? AND type = ?", confessionID, "boo").
-		Count(&boosCount)
+		Count(&boosCount).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count reactions"})
+	}
 
 	// Update confession's likes and boos count
-	config.DB.Model(&models.Confession{}).
+	if err := config.DB.Model(&models.Confession{}).
 		Where("id = ?", confessionID).
-		Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount})
+		Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update confession totals"})
+	}
 
 	// Fetch updated confession to return
 	var updatedConfession models.Confession
-	config.DB.Where("id = ?", confessionID).First(&updatedConfession)
+	if err := config.DB.Where("id = ?", confessionID).First(&updatedConfession).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load confession"})
+	}
 
 	// Publish to Redis
-	data, _ := json.Marshal(fiber.Map{"event": "confession_reacted", "data": reaction})
-	redis.Client.Publish(redis.Ctx, "confessions:reactions", data)
+	data, _ := json.Marshal(fiber.Map{"confession_id": confessionID})
+	redis.Client.Publish(redis.Ctx, "confessions:reaction:updated", data)
 
 	return c.JSON(updatedConfession)
 }
@@ -86,27 +112,44 @@ func ReactToComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid reaction type"})
 	}
 
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := uuid.MustParse(claims["user_id"].(string))
+	userIDStr, ok := c.Locals("user_id").(string)
+	if !ok || userIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+	parsedCommentID, err := uuid.Parse(commentID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid comment id"})
+	}
 
 	var reaction models.Reaction
-	err := config.DB.Where("user_id = ? AND comment_id = ?", userID, commentID).First(&reaction).Error
+	err = config.DB.Where("user_id = ? AND comment_id = ?", userID, parsedCommentID).First(&reaction).Error
 
 	if err == nil {
 		// Update existing reaction
 		reaction.Type = input.Type
 		reaction.UpdatedAt = time.Now()
-		config.DB.Save(&reaction)
+		if err := config.DB.Save(&reaction).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update reaction"})
+		}
 	} else {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query reaction"})
+		}
 		// Create new reaction
 		newReaction := models.Reaction{
 			UserID:    userID,
-			CommentID: uuidPtr(uuid.MustParse(commentID)),
+			CommentID: uuidPtr(parsedCommentID),
 			Type:      input.Type,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		config.DB.Create(&newReaction)
+		if err := config.DB.Create(&newReaction).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create reaction"})
+		}
 		reaction = newReaction
 	}
 
@@ -114,26 +157,34 @@ func ReactToComment(c *fiber.Ctx) error {
 	var likesCount int64
 	var boosCount int64
 
-	config.DB.Model(&models.Reaction{}).
+	if err := config.DB.Model(&models.Reaction{}).
 		Where("comment_id = ? AND type = ?", commentID, "like").
-		Count(&likesCount)
+		Count(&likesCount).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count reactions"})
+	}
 
-	config.DB.Model(&models.Reaction{}).
+	if err := config.DB.Model(&models.Reaction{}).
 		Where("comment_id = ? AND type = ?", commentID, "boo").
-		Count(&boosCount)
+		Count(&boosCount).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count reactions"})
+	}
 
 	// Update comment's likes and boos count
-	config.DB.Model(&models.Comment{}).
+	if err := config.DB.Model(&models.Comment{}).
 		Where("id = ?", commentID).
-		Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount})
+		Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update comment totals"})
+	}
 
 	// Fetch updated comment to return
 	var updatedComment models.Comment
-	config.DB.Where("id = ?", commentID).First(&updatedComment)
+	if err := config.DB.Where("id = ?", commentID).First(&updatedComment).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load comment"})
+	}
 
 	// Publish to Redis
-	data, _ := json.Marshal(fiber.Map{"event": "comment_reacted", "data": reaction})
-	redis.Client.Publish(redis.Ctx, "comments:reactions", data)
+	data, _ := json.Marshal(fiber.Map{"comment_id": commentID})
+	redis.Client.Publish(redis.Ctx, "confessions:reaction:updated", data)
 
 	return c.JSON(updatedComment)
 }
@@ -141,8 +192,10 @@ func ReactToComment(c *fiber.Ctx) error {
 // RemoveReaction allows user to remove their reaction (confession or comment)
 func RemoveReaction(c *fiber.Ctx) error {
 	id := c.Params("id") // reaction ID
-	claims := c.Locals("user").(jwt.MapClaims)
-	userID := claims["user_id"].(string)
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
 
 	var reaction models.Reaction
 	if err := config.DB.First(&reaction, "id = ?", id).Error; err != nil {
@@ -172,9 +225,11 @@ func RemoveReaction(c *fiber.Ctx) error {
 			Where("confession_id = ? AND type = ?", confessionID, "boo").
 			Count(&boosCount)
 
-		config.DB.Model(&models.Confession{}).
+		if err := config.DB.Model(&models.Confession{}).
 			Where("id = ?", confessionID).
-			Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount})
+			Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount}).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update confession totals"})
+		}
 	}
 
 	if reaction.CommentID != nil {
@@ -190,13 +245,19 @@ func RemoveReaction(c *fiber.Ctx) error {
 			Where("comment_id = ? AND type = ?", commentID, "boo").
 			Count(&boosCount)
 
-		config.DB.Model(&models.Comment{}).
+		if err := config.DB.Model(&models.Comment{}).
 			Where("id = ?", commentID).
-			Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount})
+			Updates(map[string]interface{}{"likes": likesCount, "boos": boosCount}).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update comment totals"})
+		}
 	}
 
-	data, _ := json.Marshal(fiber.Map{"event": "reaction_removed", "id": id})
-	redis.Client.Publish(redis.Ctx, "reactions:removed", data)
+	data, _ := json.Marshal(fiber.Map{
+		"id":            id,
+		"confession_id": reaction.ConfessionID,
+		"comment_id":    reaction.CommentID,
+	})
+	redis.Client.Publish(redis.Ctx, "confessions:reaction:removed", data)
 
 	return c.JSON(fiber.Map{"message": "Reaction removed"})
 }

@@ -1,2 +1,6 @@
 
 .env
+tmp/
+*.swp
+*#
+.idea/

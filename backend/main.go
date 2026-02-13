@@ -25,7 +25,11 @@ func main() {
 	config.InitDB()
 
 	// Connect to Redis
-	redis.ConnectRedis("redis:6379")
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "redis:6379"
+	}
+	redis.ConnectRedis(redisAddr)
 
 	// Start Redis subscriber (background worker)
 	redis.StartSubscriber()
@@ -62,9 +66,13 @@ func main() {
 	}()
 
 	// Enable CORS for frontend
+	allowOrigins := os.Getenv("CORS_ALLOW_ORIGINS")
+	if allowOrigins == "" {
+		allowOrigins = "http://localhost:5173"
+	}
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://167.99.245.74:5173/",
-		// AllowOrigins:     "http://localhost:5173", Use in development
+		AllowOrigins:     allowOrigins,
 		AllowCredentials: true,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
@@ -76,7 +84,7 @@ func main() {
 	// Server port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = ":5000"
+		port = "5000"
 	}
 	log.Fatal(app.Listen(":" + port))
 }
