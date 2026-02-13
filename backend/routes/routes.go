@@ -7,7 +7,7 @@ import (
 )
 
 func SetupRoutes(app *fiber.App) {
-	api := app.Group("/api")
+	api := app.Group("/")
 
 	// ===== AUTH (Public) =====
 	api.Post("/login", controllers.Login)
@@ -21,11 +21,11 @@ func SetupRoutes(app *fiber.App) {
 
 	// ===== CONFESSIONS =====
 	confessions := protected.Group("/confessions")
-	confessions.Post("/", controllers.CreateConfession)                     // Create a confession
-	confessions.Put("/:id", controllers.UpdateConfession)                   // Update a confession
-	confessions.Delete("/:id", controllers.DeleteConfession)                // Delete a confession
-	confessions.Post("/:id/star", controllers.StarConfession)               // Star a confession
-	confessions.Post("/:id/react", controllers.ReactToConfession)           // Like/Boo a confession
+	confessions.Post("/", controllers.CreateConfession)           // Create a confession
+	confessions.Put("/:id", controllers.UpdateConfession)         // Update a confession
+	confessions.Delete("/:id", controllers.DeleteConfession)      // Delete a confession
+	confessions.Post("/:id/star", controllers.StarConfession)     // Star a confession
+	confessions.Post("/:id/react", controllers.ReactToConfession) // Like/Boo a confession
 
 	// ===== COMMENTS =====
 	comments := protected.Group("/comments")
