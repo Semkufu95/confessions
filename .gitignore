@@ -1,3 +1,9 @@
 docker-compose.yml
 .env
 backend/.env
+*.swp
+*#
+*.tmp
+.idea/
+backend/.idea/
+backend/tmp/
