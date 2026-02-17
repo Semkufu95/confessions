@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import {Calendar, Clock, Eye, HelpCircle, Mail, Moon, Sun, Users, Zap} from "lucide-react";
 import {useApp} from "../../context/AppContext.tsx";
 import {useEffect, useState} from "react";
+import { api } from "../../api/api.ts";
 
 interface userStats {
     currentOnline: number;
@@ -22,19 +23,28 @@ export function Footer() {
     });
 
     useEffect(() => {
-        // TODO: Simulate real-time stats updates
-        const updateStats = () => {
-            setStats({
-                currentOnline: Math.floor(Math.random() * 500) + 150,
-                maxVisitors24h: Math.floor(Math.random() * 2000) + 1500,
-                maxVisitors7d: Math.floor(Math.random() * 8000) + 6000,
-                maxVisitors1m: Math.floor(Math.random() * 25000) + 20000,
-                maxVisitors1yr: Math.floor(Math.random() * 200000) + 150000,
-            });
+        let mounted = true;
+
+        const fetchStats = async () => {
+            try {
+                const response = await api.get<userStats>("/stats");
+                if (mounted) {
+                    setStats(response.data);
+                }
+            } catch {
+                // Keep last known values when stats API is temporarily unavailable.
+            }
         };
-        updateStats();
-        const interval = setInterval(updateStats, 30000); // update every 30seconds
-        return () => clearInterval(interval);
+
+        void fetchStats();
+        const interval = setInterval(() => {
+            void fetchStats();
+        }, 30000);
+
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+        };
     }, []);
 
     const formatNumber = (num: number) => {

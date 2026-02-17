@@ -9,6 +9,12 @@ import (
 var Clients = make(map[*websocket.Conn]bool)
 var Mu sync.Mutex
 
+func ClientCount() int {
+	Mu.Lock()
+	defer Mu.Unlock()
+	return len(Clients)
+}
+
 func Broadcast(message string) {
 	Mu.Lock()
 	defer Mu.Unlock()

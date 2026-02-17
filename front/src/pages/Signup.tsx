@@ -6,6 +6,9 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*[^\w\s]).{6,}$/;
+
 export function Signup() {
     const [formData, setFormData] = useState({
         username: '',
@@ -29,18 +32,23 @@ export function Signup() {
         e.preventDefault();
         setError('');
 
+        if (!EMAIL_PATTERN.test(formData.email.trim())) {
+            setError('Please enter a valid email address');
+            return;
+        }
+
+        if (!PASSWORD_PATTERN.test(formData.password)) {
+            setError('Password must be at least 6 characters and include one uppercase letter and one symbol');
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
             return;
         }
 
-        if (formData.password.length < 6) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
-
         try {
-            await signup(formData.email, formData.password, formData.username);
+            await signup(formData.email.trim(), formData.password, formData.username.trim());
             navigate('/');
         } catch (err: any) {
             const message = err?.response?.data?.error || 'Failed to create account. Please try again.';

@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"strings"
+
 	"github.com/Semkufu95/confessions/Backend/config"
 	"github.com/Semkufu95/confessions/Backend/models"
 	"github.com/Semkufu95/confessions/Backend/utils"
@@ -17,6 +19,23 @@ func Register(c *fiber.Ctx) error {
 	var input RegisterInput
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	input.Username = strings.TrimSpace(input.Username)
+	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
+
+	if input.Username == "" || input.Email == "" || input.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Username, email, and password are required"})
+	}
+
+	if !utils.IsValidEmailFormat(input.Email) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid email format"})
+	}
+
+	if !utils.IsValidPassword(input.Password) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Password must be at least 6 characters and include one uppercase letter and one symbol",
+		})
 	}
 
 	// validate email if exists
@@ -62,6 +81,7 @@ func Login(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
+	input.Email = strings.TrimSpace(strings.ToLower(input.Email))
 
 	var user models.User
 	result := config.DB.First(&user, "email = ?", input.Email)

@@ -12,6 +12,7 @@ func SetupRoutes(app *fiber.App) {
 	// ===== AUTH (Public) =====
 	api.Post("/login", controllers.Login)
 	api.Post("/register", controllers.Register)
+	api.Get("/stats", controllers.GetRealtimeStats)
 	api.Get("/confessions", controllers.GetAllConfessions)
 	api.Get("/confessions/:id/comments", controllers.GetConfessionWithComments)
 	api.Get("/comments/:id", controllers.GetCommentsByConfession)
