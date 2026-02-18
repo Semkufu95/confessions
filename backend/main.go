@@ -28,6 +28,10 @@ func main() {
 		log.Println("⚠️  No .env file found, using system environment")
 	}
 
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET is not set")
+	}
+
 	// Connect to Database
 	config.InitDB()
 
@@ -188,3 +192,4 @@ func main() {
 		log.Println("graceful shutdown timed out")
 	}
 }
+
