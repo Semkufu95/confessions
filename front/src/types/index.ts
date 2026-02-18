@@ -58,6 +58,15 @@ export interface Connection {
     interests: string[];
 }
 
+export interface CreateConnectionInput {
+    title: string;
+    description: string;
+    category: "love" | "friendship";
+    location?: string;
+    age?: number;
+    interests: string[];
+}
+
 export interface UserSettings {
     pushNotifications: boolean;
     emailNotifications: boolean;

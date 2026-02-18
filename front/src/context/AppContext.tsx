@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Comment, Confession, Connection } from "../types";
+import type { Comment, Confession, Connection, CreateConnectionInput } from "../types";
 import { ConfessionService } from "../services/ConfessionService";
 import { ConnectionService } from "../services/ConnectionService";
 
@@ -24,6 +24,7 @@ interface AppContextType {
     toggleLike: (confessionId: string, type: "like" | "boo") => Promise<void>;
     toggleCommentLike: (confessionId: string, commentId: string, type: "like" | "boo") => Promise<void>;
     addConfession: (content: string, category: string, isAnonymous: boolean) => Promise<void>;
+    addConnection: (input: CreateConnectionInput) => Promise<void>;
     addComment: (confessionId: string, content: string) => Promise<void>;
     getConfessionById: (confessionId: string) => Promise<Confession | null>;
     dismissNotification: (notificationId: string) => void;
@@ -331,6 +332,16 @@ export function AppProvider({ children }: AppProviderProps) {
         }
     };
 
+    const addConnection = async (input: CreateConnectionInput) => {
+        try {
+            const created = await ConnectionService.create(input);
+            setConnections((prev) => [created, ...prev]);
+        } catch (error) {
+            console.error("Failed to create connection:", error);
+            throw error;
+        }
+    };
+
     const addComment = async (confessionId: string, content: string) => {
         try {
             const comment = await ConfessionService.comment(confessionId, content);
@@ -468,6 +479,7 @@ export function AppProvider({ children }: AppProviderProps) {
         toggleLike,
         toggleCommentLike,
         addConfession,
+        addConnection,
         addComment,
         getConfessionById,
         dismissNotification,

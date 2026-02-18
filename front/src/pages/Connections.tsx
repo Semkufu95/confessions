@@ -4,20 +4,27 @@ import { motion } from 'framer-motion';
 import { Users, Heart, UserPlus, Filter } from 'lucide-react';
 // @ts-ignore
 import { ConnectionCard } from '../components/connections/ConnectionCard';
+import { CreateConnection } from '../components/connections/CreateConnection';
 import { Button } from '../components/ui/Button';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import type { CreateConnectionInput } from '../types';
 
 export function Connections() {
-    const { connections } = useApp();
+    const { connections, addConnection } = useApp();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'all' | 'love' | 'friendship'>('all');
+    const [showCreateConnection, setShowCreateConnection] = useState(false);
 
     const filteredConnections = connections.filter(connection => {
         if (activeTab === 'all') return true;
         return connection.category === activeTab;
     });
+
+    const handleCreateConnection = async (input: CreateConnectionInput) => {
+        await addConnection(input);
+    };
 
     return (
         <div className="min-h-screen p-4 md:p-6">
@@ -44,7 +51,7 @@ export function Connections() {
 
                     {user && (
                         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                            <Button className="flex items-center space-x-2">
+                            <Button className="flex items-center space-x-2" onClick={() => setShowCreateConnection(true)}>
                                 <UserPlus size={16} />
                                 <span className="hidden sm:inline">Create Connection</span>
                             </Button>
@@ -184,6 +191,12 @@ export function Connections() {
                         </div>
                     </motion.div>
                 )}
+
+                <CreateConnection
+                    isOpen={showCreateConnection}
+                    onClose={() => setShowCreateConnection(false)}
+                    onSubmit={handleCreateConnection}
+                />
             </div>
         </div>
     );

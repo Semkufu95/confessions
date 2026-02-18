@@ -1,5 +1,5 @@
 import { api } from "../api/api";
-import type { Connection, User } from "../types";
+import type { Connection, CreateConnectionInput, User } from "../types";
 
 type BackendUser = {
     id?: string;
@@ -55,5 +55,18 @@ export const ConnectionService = {
         const res = await api.get<BackendConnection[]>("/connections");
         return (res.data || []).map(normalizeConnection);
     },
-};
 
+    async create(input: CreateConnectionInput): Promise<Connection> {
+        const payload = {
+            title: input.title.trim(),
+            description: input.description.trim(),
+            category: input.category,
+            location: input.location?.trim() || undefined,
+            age: input.age,
+            interests: input.interests,
+        };
+
+        const res = await api.post<BackendConnection>("/connections/", payload);
+        return normalizeConnection(res.data);
+    },
+};
