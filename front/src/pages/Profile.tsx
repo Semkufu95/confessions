@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, LogOut } from 'lucide-react';
+import { User, Bell, Shield, LogOut, Users } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { SettingsService } from '../services/SettingsService';
 import type { UserSettings } from '../types';
+import { formatTimeAgo } from '../utils/dateUtils';
 
 type SettingToggleKey = 'pushNotifications' | 'emailNotifications' | 'commentReplies' | 'newFollowers';
 
 export function Profile() {
     const { user, logout } = useAuth();
+    const { friends, refreshFriends } = useApp();
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [savingKey, setSavingKey] = useState<SettingToggleKey | null>(null);
@@ -36,6 +39,12 @@ export function Profile() {
         return () => {
             mounted = false;
         };
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+        void refreshFriends();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     const toggleSetting = async (key: SettingToggleKey) => {
@@ -177,6 +186,53 @@ export function Profile() {
                                 </button>
                             ))}
                         </div>
+                    </Card>
+
+                    {/* Followers / Friends */}
+                    <Card className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                                <Users size={20} className="text-gray-600 dark:text-gray-400" />
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
+                                    Friends / Followers
+                                </h2>
+                            </div>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                {friends.length}
+                            </span>
+                        </div>
+
+                        {friends.length === 0 ? (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 tracking-tight">
+                                No followers yet.
+                            </p>
+                        ) : (
+                            <div className="space-y-3">
+                                {friends.map((friend) => (
+                                    <div
+                                        key={`${friend.senderId}-${friend.followedAt}`}
+                                        className="rounded-xl border border-gray-200 dark:border-gray-700 p-3"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                                                    @{friend.username}
+                                                </p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 tracking-tight">
+                                                    {friend.email}
+                                                </p>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 tracking-tight">
+                                                    Latest: {friend.latestConnectionTitle}
+                                                </p>
+                                            </div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                                {formatTimeAgo(friend.followedAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </Card>
 
                     {/* Sign Out */}

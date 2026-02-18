@@ -14,4 +14,7 @@ type ConnectionRequest struct {
 	Status       string    `gorm:"type:text;not null;default:'pending'" json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+
+	Sender     User       `gorm:"foreignKey:SenderID;references:ID" json:"sender"`
+	Connection Connection `gorm:"foreignKey:ConnectionID;references:ID" json:"connection"`
 }

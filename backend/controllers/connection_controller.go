@@ -8,6 +8,7 @@ import (
 
 	"github.com/Semkufu95/confessions/Backend/config"
 	"github.com/Semkufu95/confessions/Backend/models"
+	"github.com/Semkufu95/confessions/Backend/redis"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -64,6 +65,15 @@ type connectionProfileResponse struct {
 	ConnectionsPosted int64                       `json:"connections_posted"`
 	Categories        []string                    `json:"categories"`
 	RecentConnections []connectionPreviewResponse `json:"recent_connections"`
+}
+
+type friendFollowerResponse struct {
+	SenderID              uuid.UUID `json:"sender_id"`
+	Username              string    `json:"username"`
+	Email                 string    `json:"email"`
+	FollowedAt            string    `json:"followed_at"`
+	LatestConnectionID    uuid.UUID `json:"latest_connection_id"`
+	LatestConnectionTitle string    `json:"latest_connection_title"`
 }
 
 func GetAllConnections(c *fiber.Ctx) error {
@@ -192,10 +202,66 @@ func ConnectToConnection(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create connection request"})
 	}
 
+	senderUsername := "Someone"
+	var sender models.User
+	if err := config.DB.First(&sender, "id = ?", senderID).Error; err == nil {
+		senderUsername = sender.Username
+	}
+	if redis.Client != nil {
+		eventPayload := fiber.Map{
+			"connection_id":    connection.ID.String(),
+			"connection_title": connection.Title,
+			"sender_id":        senderID.String(),
+			"sender_username":  senderUsername,
+			"receiver_id":      connection.UserID.String(),
+			"status":           request.Status,
+		}
+		if data, marshalErr := json.Marshal(eventPayload); marshalErr == nil {
+			redis.Client.Publish(redis.Ctx, "connections:friend:added", data)
+		}
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Connection request sent",
 		"request": mapConnectionRequestResponse(request),
 	})
+}
+
+func GetMyFriends(c *fiber.Ctx) error {
+	userID, err := authUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
+	}
+
+	var requests []models.ConnectionRequest
+	if err := config.DB.
+		Preload("Sender").
+		Preload("Connection").
+		Where("receiver_id = ?", userID).
+		Order("created_at desc").
+		Find(&requests).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load friends"})
+	}
+
+	seen := make(map[uuid.UUID]struct{})
+	friends := make([]friendFollowerResponse, 0, len(requests))
+	for _, item := range requests {
+		if _, exists := seen[item.SenderID]; exists {
+			continue
+		}
+		seen[item.SenderID] = struct{}{}
+
+		friends = append(friends, friendFollowerResponse{
+			SenderID:              item.SenderID,
+			Username:              item.Sender.Username,
+			Email:                 item.Sender.Email,
+			FollowedAt:            item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			LatestConnectionID:    item.ConnectionID,
+			LatestConnectionTitle: item.Connection.Title,
+		})
+	}
+
+	return c.JSON(friends)
 }
 
 func GetConnectionProfile(c *fiber.Ctx) error {

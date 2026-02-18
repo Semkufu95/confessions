@@ -27,6 +27,7 @@ func registerRoutes(api fiber.Router) {
 	protected.Post("/logout", controllers.Logout)
 	protected.Get("/me/settings", controllers.GetMySettings)
 	protected.Put("/me/settings", controllers.UpdateMySettings)
+	protected.Get("/me/friends", controllers.GetMyFriends)
 
 	// ===== CONFESSIONS =====
 	confessions := protected.Group("/confessions")

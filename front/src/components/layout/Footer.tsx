@@ -152,7 +152,7 @@ export function Footer() {
                             text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors tracking-tight"
                         >
                             {darkMode ? <Sun size={16}/> : <Moon size={16} /> }
-                            <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                            <span>{darkMode ? 'White Theme' : 'Dark Theme'}</span>
                         </motion.button>
                     </div>
 

@@ -67,7 +67,7 @@ func StartSubscriber(ctx context.Context, wg *sync.WaitGroup) {
 
 // StartWebsocketBroadcaster relays Redis events to websocket clients.
 func StartWebsocketBroadcaster(ctx context.Context, wg *sync.WaitGroup, broadcast func(string)) {
-	pubsub := Client.PSubscribe(ctx, "confessions:*")
+	pubsub := Client.PSubscribe(ctx, "confessions:*", "connections:*")
 	ch := pubsub.Channel()
 
 	wg.Add(1)

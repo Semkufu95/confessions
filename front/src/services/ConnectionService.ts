@@ -1,5 +1,5 @@
 import { api } from "../api/api";
-import type { Connection, ConnectionProfile, ConnectionRequestResult, CreateConnectionInput, User } from "../types";
+import type { Connection, ConnectionProfile, ConnectionRequestResult, CreateConnectionInput, FriendFollower, User } from "../types";
 
 type BackendUser = {
     id?: string;
@@ -52,6 +52,19 @@ type BackendConnectionProfile = {
     recentConnections?: BackendConnectionPreview[];
 };
 
+type BackendFriendFollower = {
+    sender_id?: string;
+    senderId?: string;
+    username?: string;
+    email?: string;
+    followed_at?: string;
+    followedAt?: string;
+    latest_connection_id?: string;
+    latestConnectionId?: string;
+    latest_connection_title?: string;
+    latestConnectionTitle?: string;
+};
+
 function normalizeUser(user?: BackendUser): User {
     return {
         id: user?.id || "anonymous",
@@ -96,6 +109,17 @@ function normalizeConnectionProfile(profile: BackendConnectionProfile): Connecti
     };
 }
 
+function normalizeFriendFollower(item: BackendFriendFollower): FriendFollower {
+    return {
+        senderId: item.sender_id || item.senderId || "",
+        username: item.username || "Unknown",
+        email: item.email || "",
+        followedAt: item.followed_at || item.followedAt || new Date().toISOString(),
+        latestConnectionId: item.latest_connection_id || item.latestConnectionId || "",
+        latestConnectionTitle: item.latest_connection_title || item.latestConnectionTitle || "Connection",
+    };
+}
+
 export const ConnectionService = {
     async getAll(): Promise<Connection[]> {
         const res = await api.get<BackendConnection[]>("/connections");
@@ -127,5 +151,10 @@ export const ConnectionService = {
     async getProfile(connectionId: string): Promise<ConnectionProfile> {
         const res = await api.get<BackendConnectionProfile>(`/connections/${connectionId}/profile`);
         return normalizeConnectionProfile(res.data);
+    },
+
+    async getMyFriends(): Promise<FriendFollower[]> {
+        const res = await api.get<BackendFriendFollower[]>("/me/friends");
+        return (res.data || []).map(normalizeFriendFollower);
     },
 };

@@ -77,6 +77,15 @@ export interface ConnectionProfile {
     }>;
 }
 
+export interface FriendFollower {
+    senderId: string;
+    username: string;
+    email: string;
+    followedAt: string;
+    latestConnectionId: string;
+    latestConnectionTitle: string;
+}
+
 export interface CreateConnectionInput {
     title: string;
     description: string;

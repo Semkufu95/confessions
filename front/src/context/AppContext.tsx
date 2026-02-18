@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Comment, Confession, Connection, CreateConnectionInput } from "../types";
+import type { Comment, Confession, Connection, CreateConnectionInput, FriendFollower } from "../types";
 import { ConfessionService } from "../services/ConfessionService";
 import { ConnectionService } from "../services/ConnectionService";
+import { useAuth } from "./AuthContext";
 
 export interface RealtimeNotification {
     id: string;
@@ -16,10 +17,12 @@ interface AppContextType {
     confessions: Confession[];
     starredConfessions: Confession[];
     connections: Connection[];
+    friends: FriendFollower[];
     notifications: RealtimeNotification[];
     isLoadingConfessions: boolean;
     confessionsError: string | null;
     refreshConfessions: () => Promise<void>;
+    refreshFriends: () => Promise<void>;
     toggleStar: (confessionId: string) => Promise<void>;
     toggleLike: (confessionId: string, type: "like" | "boo") => Promise<void>;
     toggleCommentLike: (confessionId: string, commentId: string, type: "like" | "boo") => Promise<void>;
@@ -43,6 +46,7 @@ const NOTIFICATION_FILTER_STORAGE_KEY = "realtimeNotificationChannels";
 const DEFAULT_NOTIFICATION_CHANNELS = [
     "confessions:confession:created",
     "confessions:comment:created",
+    "connections:friend:added",
 ];
 
 function getEnabledNotificationChannels(): Set<string> {
@@ -61,7 +65,7 @@ function getEnabledNotificationChannels(): Set<string> {
 
         const values = parsed.filter((item): item is string => typeof item === "string" && item.trim() !== "");
         if (values.length === 0) return defaults;
-        return new Set(values);
+        return new Set([...defaults, ...values]);
     } catch {
         return defaults;
     }
@@ -113,6 +117,8 @@ function parseRealtimeEvent(raw: string): RealtimeEvent | null {
 function buildNotification(event: RealtimeEvent): Omit<RealtimeNotification, "id"> | null {
     const content = typeof event.payload.content === "string" ? event.payload.content : undefined;
     const snippet = shorten(content);
+    const senderUsername = typeof event.payload.sender_username === "string" ? event.payload.sender_username : "Someone";
+    const connectionTitle = typeof event.payload.connection_title === "string" ? event.payload.connection_title : "your connection";
 
     switch (event.channel) {
         case "confessions:confession:created":
@@ -169,9 +175,20 @@ function buildNotification(event: RealtimeEvent): Omit<RealtimeNotification, "id
                 message: "A reaction was removed.",
                 variant: "info",
             };
+        case "connections:friend:added":
+            return {
+                title: "New follower",
+                message: `${senderUsername} requested to connect on ${connectionTitle}.`,
+                variant: "success",
+            };
         default:
             return null;
     }
+}
+
+function eventTargetUserID(event: RealtimeEvent): string | null {
+    if (event.channel !== "connections:friend:added") return null;
+    return typeof event.payload.receiver_id === "string" ? event.payload.receiver_id : null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -189,6 +206,7 @@ interface AppProviderProps {
 }
 
 export function AppProvider({ children }: AppProviderProps) {
+    const { user } = useAuth();
     const [darkMode, setDarkMode] = useState(() => {
         const saved = localStorage.getItem("darkMode");
         return saved ? JSON.parse(saved) : false;
@@ -197,6 +215,7 @@ export function AppProvider({ children }: AppProviderProps) {
     const [isLoadingConfessions, setIsLoadingConfessions] = useState(false);
     const [confessionsError, setConfessionsError] = useState<string | null>(null);
     const [connections, setConnections] = useState<Connection[]>([]);
+    const [friends, setFriends] = useState<FriendFollower[]>([]);
     const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
     const [starredIds, setStarredIds] = useState<string[]>(() => {
         const saved = localStorage.getItem("starredConfessionIds");
@@ -210,6 +229,12 @@ export function AppProvider({ children }: AppProviderProps) {
         setDarkMode(next);
         localStorage.setItem("darkMode", JSON.stringify(next));
     };
+
+    useEffect(() => {
+        if (typeof document === "undefined") return;
+        document.documentElement.classList.toggle("dark", darkMode);
+        document.documentElement.style.colorScheme = darkMode ? "dark" : "light";
+    }, [darkMode]);
 
     const dismissNotification = (notificationId: string) => {
         const timer = notificationTimers.current[notificationId];
@@ -272,6 +297,21 @@ export function AppProvider({ children }: AppProviderProps) {
         }
     };
 
+    const refreshFriends = async () => {
+        if (!user) {
+            setFriends([]);
+            return;
+        }
+
+        try {
+            const data = await ConnectionService.getMyFriends();
+            setFriends(data);
+        } catch (error) {
+            console.error("Failed to fetch friends:", error);
+            setFriends([]);
+        }
+    };
+
     useEffect(() => {
         void refreshConfessions();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,6 +320,11 @@ export function AppProvider({ children }: AppProviderProps) {
     useEffect(() => {
         void refreshConnections();
     }, []);
+
+    useEffect(() => {
+        void refreshFriends();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]);
 
     useEffect(() => {
         return () => {
@@ -303,7 +348,21 @@ export function AppProvider({ children }: AppProviderProps) {
             const parsed = parseRealtimeEvent(typeof event.data === "string" ? event.data : "");
             if (!parsed) return;
 
-            void refreshConfessions();
+            if (parsed.channel.startsWith("confessions:")) {
+                void refreshConfessions();
+            }
+
+            if (parsed.channel === "connections:friend:added") {
+                const targetUserID = eventTargetUserID(parsed);
+                if (targetUserID && user?.id === targetUserID) {
+                    void refreshFriends();
+                }
+            }
+
+            const targetUserID = eventTargetUserID(parsed);
+            if (targetUserID && user?.id !== targetUserID) {
+                return;
+            }
 
             if (!enabledNotificationChannels.has(parsed.channel)) {
                 return;
@@ -322,7 +381,7 @@ export function AppProvider({ children }: AppProviderProps) {
             socket.close();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabledNotificationChannels]);
+    }, [enabledNotificationChannels, user?.id]);
 
     const addConfession = async (content: string, category: string, isAnonymous: boolean) => {
         try {
@@ -495,10 +554,12 @@ export function AppProvider({ children }: AppProviderProps) {
         confessions,
         starredConfessions,
         connections,
+        friends,
         notifications,
         isLoadingConfessions,
         confessionsError,
         refreshConfessions,
+        refreshFriends,
         toggleStar,
         toggleLike,
         toggleCommentLike,
