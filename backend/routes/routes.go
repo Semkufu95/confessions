@@ -7,8 +7,11 @@ import (
 )
 
 func SetupRoutes(app *fiber.App) {
-	api := app.Group("/")
+	registerRoutes(app.Group("/"))
+	registerRoutes(app.Group("/api"))
+}
 
+func registerRoutes(api fiber.Router) {
 	// ===== AUTH (Public) =====
 	api.Post("/login", controllers.Login)
 	api.Post("/register", controllers.Register)
