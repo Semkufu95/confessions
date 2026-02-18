@@ -21,7 +21,7 @@ export interface Confession {
     isLiked?: boolean;
     isBooed?: boolean;
     isStarred?: boolean;
-    category?: 'love' | 'friendship' | 'work' | 'family' | 'general';
+    category?: string;
     trending?: boolean;
 }
 
@@ -56,6 +56,25 @@ export interface Connection {
     location?: string;
     age?: number;
     interests: string[];
+}
+
+export interface ConnectionRequestResult {
+    status: string;
+    message: string;
+}
+
+export interface ConnectionProfile {
+    id: string;
+    username: string;
+    createdAt: string;
+    connectionsPosted: number;
+    categories: string[];
+    recentConnections: Array<{
+        id: string;
+        title: string;
+        category: string;
+        createdAt: string;
+    }>;
 }
 
 export interface CreateConnectionInput {

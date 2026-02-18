@@ -40,6 +40,7 @@ func InitDB() {
 		&models.Comment{},
 		&models.Reaction{},
 		&models.Connection{},
+		&models.ConnectionRequest{},
 		&models.Session{},
 		&models.UserSettings{},
 	)

@@ -81,8 +81,14 @@ export function CreateConnection({ isOpen, onClose, onSubmit }: CreateConnection
             await onSubmit(payload);
             resetForm();
             onClose();
-        } catch (submitError: any) {
-            const serverError = submitError?.response?.data?.error;
+        } catch (submitError: unknown) {
+            const serverError =
+                typeof submitError === "object" &&
+                submitError !== null &&
+                "response" in submitError &&
+                typeof (submitError as { response?: { data?: { error?: unknown } } }).response?.data?.error === "string"
+                    ? (submitError as { response?: { data?: { error?: string } } }).response?.data?.error
+                    : undefined;
             setError(typeof serverError === "string" ? serverError : "Could not create connection. Please try again.");
         } finally {
             setIsSubmitting(false);
@@ -107,9 +113,9 @@ export function CreateConnection({ isOpen, onClose, onSubmit }: CreateConnection
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         className="fixed inset-4 sm:inset-8 md:inset-0 md:flex md:items-center md:justify-center md:p-8 z-50"
                     >
-                        <Card className="h-full md:h-auto md:w-full md:max-w-2xl md:max-h-[90vh] md:overflow-y-auto p-4 sm:p-6">
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="flex items-center justify-between">
+                        <Card className="flex h-full md:h-auto md:w-full md:max-w-2xl md:max-h-[90vh] flex-col p-4 sm:p-6">
+                            <form onSubmit={handleSubmit} className="flex h-full flex-col">
+                                <div className="flex items-center justify-between pb-2">
                                     <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
                                         Create Connection
                                     </h2>
@@ -118,93 +124,95 @@ export function CreateConnection({ isOpen, onClose, onSubmit }: CreateConnection
                                     </Button>
                                 </div>
 
-                                <Input
-                                    label="Title"
-                                    value={title}
-                                    onChange={(event) => setTitle(event.target.value)}
-                                    placeholder="Looking for a hiking buddy"
-                                    maxLength={120}
-                                    required
-                                />
+                                <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                                    <Input
+                                        label="Title"
+                                        value={title}
+                                        onChange={(event) => setTitle(event.target.value)}
+                                        placeholder="Looking for a hiking buddy"
+                                        maxLength={120}
+                                        required
+                                    />
 
-                                <TextArea
-                                    label="Description"
-                                    value={description}
-                                    onChange={(event) => setDescription(event.target.value)}
-                                    placeholder="Share what kind of connection you are looking for."
-                                    rows={4}
-                                    maxLength={1200}
-                                    required
-                                />
+                                    <TextArea
+                                        label="Description"
+                                        value={description}
+                                        onChange={(event) => setDescription(event.target.value)}
+                                        placeholder="Share what kind of connection you are looking for."
+                                        rows={4}
+                                        maxLength={1200}
+                                        required
+                                    />
 
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 tracking-tight">
-                                        Category
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setCategory("friendship")}
-                                            className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                                                category === "friendship"
-                                                    ? "bg-green-100 text-green-700 ring-2 ring-green-400 dark:bg-green-900/30 dark:text-green-300"
-                                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                            }`}
-                                        >
-                                            <span className="inline-flex items-center gap-2">
-                                                <Users size={16} />
-                                                Friendship
-                                            </span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setCategory("love")}
-                                            className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                                                category === "love"
-                                                    ? "bg-red-100 text-red-700 ring-2 ring-red-400 dark:bg-red-900/30 dark:text-red-300"
-                                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                            }`}
-                                        >
-                                            <span className="inline-flex items-center gap-2">
-                                                <Heart size={16} />
-                                                Love
-                                            </span>
-                                        </button>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 tracking-tight">
+                                            Category
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCategory("friendship")}
+                                                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                                                    category === "friendship"
+                                                        ? "bg-green-100 text-green-700 ring-2 ring-green-400 dark:bg-green-900/30 dark:text-green-300"
+                                                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                }`}
+                                            >
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Users size={16} />
+                                                    Friendship
+                                                </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCategory("love")}
+                                                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                                                    category === "love"
+                                                        ? "bg-red-100 text-red-700 ring-2 ring-red-400 dark:bg-red-900/30 dark:text-red-300"
+                                                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                }`}
+                                            >
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Heart size={16} />
+                                                    Love
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Input
+                                            label="Location (optional)"
+                                            value={location}
+                                            onChange={(event) => setLocation(event.target.value)}
+                                            placeholder="Kampala"
+                                            maxLength={80}
+                                        />
+                                        <Input
+                                            label="Age (optional)"
+                                            type="number"
+                                            min={18}
+                                            value={age}
+                                            onChange={(event) => setAge(event.target.value)}
+                                            placeholder="24"
+                                        />
+                                    </div>
+
+                                    <Input
+                                        label="Interests (optional)"
+                                        value={interests}
+                                        onChange={(event) => setInterests(event.target.value)}
+                                        placeholder="coding, movies, football"
+                                    />
+
+                                    {error && (
+                                        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                                            {error}
+                                        </p>
+                                    )}
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Input
-                                        label="Location (optional)"
-                                        value={location}
-                                        onChange={(event) => setLocation(event.target.value)}
-                                        placeholder="Kampala"
-                                        maxLength={80}
-                                    />
-                                    <Input
-                                        label="Age (optional)"
-                                        type="number"
-                                        min={18}
-                                        value={age}
-                                        onChange={(event) => setAge(event.target.value)}
-                                        placeholder="24"
-                                    />
-                                </div>
-
-                                <Input
-                                    label="Interests (optional)"
-                                    value={interests}
-                                    onChange={(event) => setInterests(event.target.value)}
-                                    placeholder="coding, movies, football"
-                                />
-
-                                {error && (
-                                    <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
-                                        {error}
-                                    </p>
-                                )}
-
-                                <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                                <div className="sticky bottom-0 mt-3 flex flex-col sm:flex-row items-center gap-3 border-t border-gray-200 bg-white pt-3 dark:border-gray-700 dark:bg-gray-900">
                                     <Button type="button" variant="ghost" onClick={handleClose} className="w-full sm:flex-1">
                                         Cancel
                                     </Button>

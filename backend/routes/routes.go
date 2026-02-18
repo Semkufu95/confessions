@@ -18,6 +18,7 @@ func registerRoutes(api fiber.Router) {
 	api.Get("/stats", controllers.GetRealtimeStats)
 	api.Get("/confessions", controllers.GetAllConfessions)
 	api.Get("/connections", controllers.GetAllConnections)
+	api.Get("/connections/:id/profile", controllers.GetConnectionProfile)
 	api.Get("/confessions/:id/comments", controllers.GetConfessionWithComments)
 	api.Get("/comments/:id", controllers.GetCommentsByConfession)
 
@@ -45,6 +46,7 @@ func registerRoutes(api fiber.Router) {
 	// ===== CONNECTIONS =====
 	connections := protected.Group("/connections")
 	connections.Post("/", controllers.CreateConnection)
+	connections.Post("/:id/connect", controllers.ConnectToConnection)
 
 	// ===== REACTIONS =====
 	reactions := protected.Group("/reactions")

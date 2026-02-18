@@ -13,7 +13,7 @@ interface CreateConfessionProps {
 
 export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfessionProps) {
     const [content, setContent] = useState('');
-    const [category, setCategory] = useState('general');
+    const [category, setCategory] = useState('');
     const [isAnonymous, setIsAnonymous] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -27,13 +27,13 @@ export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfession
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!content.trim()) return;
+        if (!content.trim() || !category) return;
 
         setIsSubmitting(true);
         try {
             await onSubmit(content, category, isAnonymous);
             setContent('');
-            setCategory('general');
+            setCategory('');
             setIsAnonymous(true);
             onClose();
         } finally {
@@ -126,6 +126,11 @@ export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfession
                                             </motion.button>
                                         ))}
                                     </div>
+                                    {!category && (
+                                        <p className="text-sm text-amber-600 dark:text-amber-400 tracking-tight">
+                                            Select a category before posting.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Privacy Toggle */}
@@ -177,7 +182,7 @@ export function CreateConfession({ isOpen, onClose, onSubmit }: CreateConfession
                                     <Button
                                         type="submit"
                                         loading={isSubmitting}
-                                        disabled={!content.trim() || content.length > 1000}
+                                        disabled={!content.trim() || !category || content.length > 1000}
                                         className="w-full sm:flex-1 flex items-center justify-center space-x-2"
                                     >
                                         <Send size={16} />

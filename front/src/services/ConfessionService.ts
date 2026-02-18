@@ -53,6 +53,10 @@ function normalizeComment(comment: BackendComment): Comment {
 }
 
 function normalizeConfession(confession: BackendConfession, comments: Comment[] = []): Confession {
+    const normalizedCategory = typeof confession.category === "string" && confession.category.trim() !== ""
+        ? confession.category.trim().toLowerCase()
+        : undefined;
+
     return {
         id: confession.id,
         content: confession.content,
@@ -62,7 +66,7 @@ function normalizeConfession(confession: BackendConfession, comments: Comment[] 
         boos: confession.boos || 0,
         stars: confession.stars || 0,
         shares: 0,
-        category: confession.category || "general",
+        category: normalizedCategory,
         trending: false,
         comments,
         commentsCount: confession.comments ?? comments.length,
@@ -87,6 +91,20 @@ export const ConfessionService = {
     async create(content: string, category: string, isAnonymous: boolean): Promise<Confession> {
         const res = await api.post<BackendConfession>("/confessions/", { content, category, isAnonymous });
         return normalizeConfession(res.data);
+    },
+
+    async update(id: string, content: string, category?: string): Promise<Confession> {
+        const payload = {
+            content,
+            category: category ?? "",
+        };
+
+        const res = await api.put<BackendConfession>(`/confessions/${id}`, payload);
+        return normalizeConfession(res.data);
+    },
+
+    async remove(id: string): Promise<void> {
+        await api.delete(`/confessions/${id}`);
     },
 
     async star(id: string): Promise<Confession> {

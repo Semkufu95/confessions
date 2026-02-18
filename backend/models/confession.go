@@ -14,7 +14,7 @@ type Confession struct {
 	Boos      int       `gorm:"type:int;not null;default:0" json:"boos"`
 	Stars     int       `gorm:"type:int;not null;default:0" json:"stars"`
 	Comments  int       `gorm:"type:int;not null;default:0" json:"comments"`
-	Category  string    `gorm:"type:text;not null;default:'general'" json:"category"`
+	Category  string    `gorm:"type:text;not null" json:"category"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { Starred } from './pages/Starred';
 import { Connections } from './pages/Connections';
+import { ConnectionProfilePage } from './pages/ConnectionProfile';
 import { Profile } from './pages/Profile';
 import { ConfessionDetail } from './pages/ConfessionDetail';
 import { ComingSoon } from './pages/ComingSoon';
@@ -32,6 +33,7 @@ function AppRoutes() {
             <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/" />} />
             <Route path="/starred" element={<Starred />} />
             <Route path="/connections" element={<Connections />} />
+            <Route path="/connections/:id/profile" element={<ConnectionProfilePage />} />
             <Route path="/messages" element={<ComingSoon />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/confession/:id" element={<ConfessionDetail />} />

@@ -12,10 +12,28 @@ import (
 	"github.com/google/uuid"
 )
 
+var allowedConfessionCategories = map[string]struct{}{
+	"general":    {},
+	"love":       {},
+	"friendship": {},
+	"work":       {},
+	"family":     {},
+}
+
+func normalizeConfessionCategory(raw string) (string, bool) {
+	category := strings.TrimSpace(strings.ToLower(raw))
+	if category == "" {
+		return "", true
+	}
+	_, ok := allowedConfessionCategories[category]
+	return category, ok
+}
+
 // CreateConfession handles anonymous posting
 func CreateConfession(c *fiber.Ctx) error {
 	type ConfessionInput struct {
-		Content string `json:"content"`
+		Content  string `json:"content"`
+		Category string `json:"category"`
 	}
 
 	var input ConfessionInput
@@ -28,6 +46,10 @@ func CreateConfession(c *fiber.Ctx) error {
 	}
 	if len(input.Content) > 1000 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content must be 1000 characters or less"})
+	}
+	category, isCategoryValid := normalizeConfessionCategory(input.Category)
+	if !isCategoryValid {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid category"})
 	}
 
 	userID, ok := c.Locals("user_id").(string)
@@ -42,6 +64,7 @@ func CreateConfession(c *fiber.Ctx) error {
 	confession := models.Confession{
 		UserID:    parsedUserID,
 		Content:   input.Content,
+		Category:  category,
 		CreatedAt: time.Now(),
 	}
 
@@ -111,7 +134,8 @@ func DeleteConfession(c *fiber.Ctx) error {
 func UpdateConfession(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var input struct {
-		Content string `json:"content"`
+		Content  string  `json:"content"`
+		Category *string `json:"category"`
 	}
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
@@ -122,6 +146,14 @@ func UpdateConfession(c *fiber.Ctx) error {
 	}
 	if len(input.Content) > 1000 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content must be 1000 characters or less"})
+	}
+	var normalizedCategory *string
+	if input.Category != nil {
+		category, isCategoryValid := normalizeConfessionCategory(*input.Category)
+		if !isCategoryValid {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid category"})
+		}
+		normalizedCategory = &category
 	}
 
 	var confession models.Confession
@@ -138,6 +170,9 @@ func UpdateConfession(c *fiber.Ctx) error {
 	}
 
 	confession.Content = input.Content
+	if normalizedCategory != nil {
+		confession.Category = *normalizedCategory
+	}
 	if err := config.DB.Save(&confession).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update confession"})
 	}

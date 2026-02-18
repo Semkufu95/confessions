@@ -24,6 +24,8 @@ interface AppContextType {
     toggleLike: (confessionId: string, type: "like" | "boo") => Promise<void>;
     toggleCommentLike: (confessionId: string, commentId: string, type: "like" | "boo") => Promise<void>;
     addConfession: (content: string, category: string, isAnonymous: boolean) => Promise<void>;
+    updateConfession: (confessionId: string, content: string, category?: string) => Promise<void>;
+    deleteConfession: (confessionId: string) => Promise<void>;
     addConnection: (input: CreateConnectionInput) => Promise<void>;
     addComment: (confessionId: string, content: string) => Promise<void>;
     getConfessionById: (confessionId: string) => Promise<Confession | null>;
@@ -332,6 +334,28 @@ export function AppProvider({ children }: AppProviderProps) {
         }
     };
 
+    const updateConfession = async (confessionId: string, content: string, category?: string) => {
+        try {
+            const updated = await ConfessionService.update(confessionId, content, category);
+            setConfessions((prev) =>
+                prev.map((confession) => (confession.id === confessionId ? { ...confession, ...updated } : confession))
+            );
+        } catch (error) {
+            console.error("Failed to update confession:", error);
+            throw error;
+        }
+    };
+
+    const deleteConfession = async (confessionId: string) => {
+        try {
+            await ConfessionService.remove(confessionId);
+            setConfessions((prev) => prev.filter((confession) => confession.id !== confessionId));
+        } catch (error) {
+            console.error("Failed to delete confession:", error);
+            throw error;
+        }
+    };
+
     const addConnection = async (input: CreateConnectionInput) => {
         try {
             const created = await ConnectionService.create(input);
@@ -479,6 +503,8 @@ export function AppProvider({ children }: AppProviderProps) {
         toggleLike,
         toggleCommentLike,
         addConfession,
+        updateConfession,
+        deleteConfession,
         addConnection,
         addComment,
         getConfessionById,
