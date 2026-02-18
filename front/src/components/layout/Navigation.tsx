@@ -6,10 +6,10 @@ import { motion } from "framer-motion";
 
 const navItems = [
     { to: '/', icon: Home, label: 'Home' },
-    { to: 'starred', icon: HeartIcon, label: 'starred' },
-    { to: '/connections', icon: Users, label: "connections" },
-    { to: '/messages', icon: Send, label: "messages" },
-    { to: '/profile', icon: User, label: 'profile'}
+    { to: '/starred', icon: HeartIcon, label: 'Starred' },
+    { to: '/connections', icon: Users, label: "Connections" },
+    { to: '/messages', icon: Send, label: "Messages" },
+    { to: '/profile', icon: User, label: 'Profile'}
 ];
 
 export function Navigation() {
@@ -24,21 +24,21 @@ export function Navigation() {
     // show limited Navigation for Non-Authenticated users
     const navigationItems = user ? navItems : [
         { to: '/', icon: HomeIcon, label: 'Home' },
-        { to: '/connections', icon: Users, label: "connections" },
-        { to: '/messages', icon: Send, label: "messages" },
+        { to: '/connections', icon: Users, label: "Connections" },
+        { to: '/messages', icon: Send, label: "Messages" },
     ];
     return (
         <>
             {/* Mobile Bottom navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
-                <div className="flex items-center justify-around py-2">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-700 z-50">
+                <div className="flex items-center justify-around px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-1.5">
                     {navigationItems.map(({ to, icon: Icon, label }) => (
                         <NavLink key={to} to={to}>
                             {({ isActive}) => (
                                 <motion.div
                                  whileTap={{ scale: 0.95 }}
                                  className={`
-                                    relative flex flex-col items-center justify-center p-3 rounded-2xl
+                                    relative flex flex-col items-center justify-center px-2 py-1.5 rounded-xl min-w-14
                                     transition-colors duration-200 tracking-tight
                                     ${isActive
                                         ? 'text-blue-600 dark:text-blue-400'
@@ -46,12 +46,12 @@ export function Navigation() {
                                     }
                                  `}
                                 >
-                                    <Icon size={20}/>
-                                    <span className="text-xc mt-1 font-medium">{label}</span>
+                                    <Icon size={18}/>
+                                    <span className="text-[10px] mt-1 font-medium leading-none">{label}</span>
                                     {isActive && (
                                         <motion.div
                                             layoutId="activeTab"
-                                            className="absolute inset-0 bg-blue-50 dark:bg-blue-900/20 rounded-2xl -z-10"
+                                            className="absolute inset-0 bg-blue-50 dark:bg-blue-900/20 rounded-xl -z-10"
                                         />
                                     )}
                                 </motion.div>
@@ -63,19 +63,19 @@ export function Navigation() {
                         <motion.button
                             whileTap={{ scale: 0.95 }}
                             onClick={() => navigate('/login')}
-                            className="flex flex-col items-center justify-center p-3 rounded-2xl text-gray-500 dark:text-gray-400
+                            className="flex flex-col items-center justify-center px-2 py-1.5 rounded-xl min-w-14 text-gray-500 dark:text-gray-400
                             hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 tracking-tight"
                         >
-                            <User size={20}/>
-                            <span className="text-xs mt-1 font-medium">Sign In</span>
+                            <User size={18}/>
+                            <span className="text-[10px] mt-1 font-medium leading-none">Sign In</span>
                         </motion.button>
                     )}
                 </div>
             </nav>
 
             {/* DeskTop site Navigation */} // TODO: Add fixed on nav classname
-            <nav className="hidden md:flex fixed left-0 top-0 bottom-2/4 w-64 bg-white dark:bg-gray-900 border-r
-            border-gray-200 dark:border-gray-700 z-40">
+            <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-gray-900 border-r
+             border-gray-200 dark:border-gray-700 z-40">
                 <div className="flex flex-col w-full p-6">
                     <div className="flex items-center space-x-2 mb-8">
                         <MessageSquare className="w-8 h-8 text-blue-600"/>

@@ -50,8 +50,9 @@ func TestRequireAuth_ValidBearerToken(t *testing.T) {
 	app := setupAuthTestApp()
 
 	token := makeToken(t, secret, jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": "user-123",
-		"exp":     time.Now().Add(time.Hour).Unix(),
+		"user_id":    "user-123",
+		"session_id": "session-123",
+		"exp":        time.Now().Add(time.Hour).Unix(),
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
@@ -72,8 +73,9 @@ func TestRequireAuth_RejectsWrongSigningMethod(t *testing.T) {
 	app := setupAuthTestApp()
 
 	token := makeToken(t, secret, jwt.SigningMethodHS384, jwt.MapClaims{
-		"user_id": "user-123",
-		"exp":     time.Now().Add(time.Hour).Unix(),
+		"user_id":    "user-123",
+		"session_id": "session-123",
+		"exp":        time.Now().Add(time.Hour).Unix(),
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
@@ -94,7 +96,30 @@ func TestRequireAuth_RejectsMissingUserIDClaim(t *testing.T) {
 	app := setupAuthTestApp()
 
 	token := makeToken(t, secret, jwt.SigningMethodHS256, jwt.MapClaims{
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"session_id": "session-123",
+		"exp":        time.Now().Add(time.Hour).Unix(),
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", fiber.StatusUnauthorized, resp.StatusCode)
+	}
+}
+
+func TestRequireAuth_RejectsMissingSessionIDClaim(t *testing.T) {
+	secret := "test-secret"
+	os.Setenv("JWT_SECRET", secret)
+	app := setupAuthTestApp()
+
+	token := makeToken(t, secret, jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": "user-123",
+		"exp":     time.Now().Add(time.Hour).Unix(),
 	})
 
 	req, _ := http.NewRequest(http.MethodGet, "/protected", nil)

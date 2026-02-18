@@ -6,7 +6,7 @@ interface AuthContextType {
     user: User | null;
     login: (email: string, password: string) => Promise<void>;
     signup: (email: string, password: string, username: string) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     isLoading: boolean;
 }
 
@@ -59,6 +59,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }, []);
 
+    useEffect(() => {
+        const handleForcedLogout = () => {
+            setUser(null);
+        };
+        window.addEventListener("auth:logout", handleForcedLogout);
+        return () => {
+            window.removeEventListener("auth:logout", handleForcedLogout);
+        };
+    }, []);
+
     const login = async (email: string, password: string) => {
         setIsLoading(true);
         try {
@@ -85,10 +95,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
+    const logout = async () => {
+        try {
+            if (localStorage.getItem("token")) {
+                await api.post("/logout");
+            }
+        } catch {
+            // Always clear client auth state even if network logout fails.
+        } finally {
+            setUser(null);
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("auth:logout"));
+            }
+        }
     };
 
     const value = useMemo(

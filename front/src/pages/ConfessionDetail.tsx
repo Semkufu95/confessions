@@ -8,6 +8,7 @@ import { CommentCard } from '../components/confessions/CommentCard';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { formatTimeAgo } from '../utils/dateUtils';
+import { SafeMultilineText } from '../components/ui/SafeMultilineText';
 
 export function ConfessionDetail() {
     const { id } = useParams<{ id: string }>();
@@ -156,9 +157,10 @@ export function ConfessionDetail() {
 
                             {/* Content */}
                             <div className="prose prose-gray dark:prose-invert max-w-none">
-                                <p className="text-gray-900 dark:text-gray-100 leading-relaxed tracking-tight text-lg">
-                                    {confession.content}
-                                </p>
+                                <SafeMultilineText
+                                    text={confession.content}
+                                    paragraphClassName="text-gray-900 dark:text-gray-100 leading-relaxed tracking-tight text-lg"
+                                />
                             </div>
 
                             {/* Actions */}

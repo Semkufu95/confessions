@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 )
 
 // StartSubscriber listens to Redis pub/sub channels and invalidates cache keys.
@@ -86,7 +87,23 @@ func StartWebsocketBroadcaster(ctx context.Context, wg *sync.WaitGroup, broadcas
 				if !ok {
 					return
 				}
-				broadcast(msg.Payload)
+
+				event := map[string]interface{}{
+					"channel":     msg.Channel,
+					"received_at": time.Now().UTC().Format(time.RFC3339),
+				}
+				if json.Valid([]byte(msg.Payload)) {
+					event["payload"] = json.RawMessage(msg.Payload)
+				} else {
+					event["payload"] = msg.Payload
+				}
+
+				data, err := json.Marshal(event)
+				if err != nil {
+					broadcast(msg.Payload)
+					continue
+				}
+				broadcast(string(data))
 			}
 		}
 	}()

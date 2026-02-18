@@ -57,3 +57,11 @@ export interface Connection {
     age?: number;
     interests: string[];
 }
+
+export interface UserSettings {
+    pushNotifications: boolean;
+    emailNotifications: boolean;
+    commentReplies: boolean;
+    newFollowers: boolean;
+    updatedAt?: string;
+}

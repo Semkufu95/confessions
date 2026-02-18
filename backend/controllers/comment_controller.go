@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/Semkufu95/confessions/Backend/config"
@@ -18,8 +19,15 @@ func PostComment(c *fiber.Ctx) error {
 		Content string `json:"content"`
 	}
 
-	if err := c.BodyParser(&input); err != nil || input.Content == "" {
+	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	input.Content = strings.TrimSpace(input.Content)
+	if input.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Comment content is required"})
+	}
+	if len(input.Content) > 1000 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Comment content must be 1000 characters or less"})
 	}
 
 	userIDStr, ok := c.Locals("user_id").(string)
@@ -106,8 +114,15 @@ func UpdateComment(c *fiber.Ctx) error {
 	var input struct {
 		Content string `json:"content"`
 	}
-	if err := c.BodyParser(&input); err != nil || input.Content == "" {
+	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	input.Content = strings.TrimSpace(input.Content)
+	if input.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Comment content is required"})
+	}
+	if len(input.Content) > 1000 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Comment content must be 1000 characters or less"})
 	}
 
 	var comment models.Comment

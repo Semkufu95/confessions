@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/Semkufu95/confessions/Backend/config"
@@ -20,6 +21,13 @@ func CreateConfession(c *fiber.Ctx) error {
 	var input ConfessionInput
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	input.Content = strings.TrimSpace(input.Content)
+	if input.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content is required"})
+	}
+	if len(input.Content) > 1000 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content must be 1000 characters or less"})
 	}
 
 	userID, ok := c.Locals("user_id").(string)
@@ -107,6 +115,13 @@ func UpdateConfession(c *fiber.Ctx) error {
 	}
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
+	}
+	input.Content = strings.TrimSpace(input.Content)
+	if input.Content == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content is required"})
+	}
+	if len(input.Content) > 1000 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Confession content must be 1000 characters or less"})
 	}
 
 	var confession models.Confession

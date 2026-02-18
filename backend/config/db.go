@@ -21,7 +21,7 @@ func InitDB() {
 
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-	       	  log.Fatal("DATABASE_URL is not set")
+		log.Fatal("DATABASE_URL is not set")
 
 	}
 
@@ -34,7 +34,15 @@ func InitDB() {
 	UuidExecution(db)
 
 	// Auto-migrate the models
-	err = db.AutoMigrate(&models.User{}, &models.Confession{}, &models.Comment{}, &models.Reaction{})
+	err = db.AutoMigrate(
+		&models.User{},
+		&models.Confession{},
+		&models.Comment{},
+		&models.Reaction{},
+		&models.Connection{},
+		&models.Session{},
+		&models.UserSettings{},
+	)
 	if err != nil {
 		log.Fatal("Migration failed: ", err)
 	}

@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import type { Comment } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { formatTimeAgo } from '../../utils/dateUtils';
+import { SafeMultilineText } from '../ui/SafeMultilineText';
 
 interface CommentCardProps {
     comment: Comment;
@@ -71,9 +72,11 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                 </div>
 
                 {/* Comment Content */}
-                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed tracking-tight mb-3">
-                    {comment?.content}
-                </p>
+                <SafeMultilineText
+                    text={comment?.content || ""}
+                    className="mb-3"
+                    paragraphClassName="text-gray-700 dark:text-gray-300 text-sm leading-relaxed tracking-tight"
+                />
 
                 {/* Comment Actions */}
                 <div className="flex items-center space-x-4">
@@ -197,9 +200,11 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                                                 {formatTimeAgo(reply?.timeStamp ?? new Date().toISOString())}
                                             </p>
                                         </div>
-                                        <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed tracking-tight mb-2">
-                                            {reply?.content}
-                                        </p>
+                                        <SafeMultilineText
+                                            text={reply?.content || ""}
+                                            className="mb-2"
+                                            paragraphClassName="text-xs text-gray-700 dark:text-gray-300 leading-relaxed tracking-tight"
+                                        />
                                         <button
                                             className={`
                         flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors

@@ -12,6 +12,9 @@ import { Profile } from './pages/Profile';
 import { ConfessionDetail } from './pages/ConfessionDetail';
 import { ComingSoon } from './pages/ComingSoon';
 import { ContactUs } from './pages/ContactUs';
+import { TermsOfService } from './pages/TermsOfService';
+import { CommunityGuidelines } from './pages/CommunityGuidelines';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { useAuth } from './context/AuthContext';
 //
 // function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -33,6 +36,10 @@ function AppRoutes() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/confession/:id" element={<ConfessionDetail />} />
             <Route path="/contact" element={<ContactUs />} />
+            <Route path="/help" element={<ComingSoon />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/community-guidelines" element={<CommunityGuidelines />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         </Routes>
     );
 }

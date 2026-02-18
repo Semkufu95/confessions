@@ -1,12 +1,67 @@
-
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Shield, LogOut } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { SettingsService } from '../services/SettingsService';
+import type { UserSettings } from '../types';
+
+type SettingToggleKey = 'pushNotifications' | 'emailNotifications' | 'commentReplies' | 'newFollowers';
 
 export function Profile() {
     const { user, logout } = useAuth();
+    const [settings, setSettings] = useState<UserSettings | null>(null);
+    const [settingsError, setSettingsError] = useState<string | null>(null);
+    const [savingKey, setSavingKey] = useState<SettingToggleKey | null>(null);
+
+    useEffect(() => {
+        if (!user) return;
+
+        let mounted = true;
+        const loadSettings = async () => {
+            try {
+                const data = await SettingsService.getMine();
+                if (mounted) {
+                    setSettings(data);
+                    setSettingsError(null);
+                }
+            } catch {
+                if (mounted) {
+                    setSettingsError('Failed to load settings.');
+                }
+            }
+        };
+        void loadSettings();
+        return () => {
+            mounted = false;
+        };
+    }, [user]);
+
+    const toggleSetting = async (key: SettingToggleKey) => {
+        if (!settings || savingKey) return;
+        const nextValue = !settings[key];
+        const optimistic = { ...settings, [key]: nextValue };
+        setSettings(optimistic);
+        setSavingKey(key);
+        setSettingsError(null);
+        try {
+            const updated = await SettingsService.updateMine({ [key]: nextValue });
+            setSettings(updated);
+        } catch {
+            setSettings(settings);
+            setSettingsError('Failed to save settings. Please try again.');
+        } finally {
+            setSavingKey(null);
+        }
+    };
+
+    const settingsRows: Array<{ key: SettingToggleKey; label: string }> = [
+        { key: 'pushNotifications', label: 'Push notifications' },
+        { key: 'emailNotifications', label: 'Email notifications' },
+        { key: 'commentReplies', label: 'Comment replies' },
+        { key: 'newFollowers', label: 'New followers' },
+    ];
 
     if (!user) {
         return (
@@ -67,32 +122,34 @@ export function Profile() {
                         </div>
 
                         <div className="space-y-4">
-                            {[
-                                'Push notifications',
-                                'Email notifications',
-                                'Comment replies',
-                                'New followers',
-                            ].map((setting, index) => (
-                                <div key={setting} className="flex items-center justify-between">
+                            {settingsRows.map((row) => (
+                                <div key={row.key} className="flex items-center justify-between">
                   <span className="text-gray-700 dark:text-gray-300 tracking-tight">
-                    {setting}
+                    {row.label}
                   </span>
                                     <motion.button
+                                        type="button"
                                         whileTap={{ scale: 0.95 }}
+                                        onClick={() => void toggleSetting(row.key)}
+                                        disabled={!settings || !!savingKey}
                                         className={`
-                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                      ${index % 2 === 0 ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}
-                    `}
+                       relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                       ${settings?.[row.key] ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}
+                       ${savingKey ? 'opacity-70 cursor-not-allowed' : ''}
+                     `}
                                     >
                                         <motion.span
                                             className={`
-                        inline-block h-4 w-4 transform rounded-full bg-white transition
-                        ${index % 2 === 0 ? 'translate-x-6' : 'translate-x-1'}
-                      `}
+                         inline-block h-4 w-4 transform rounded-full bg-white transition
+                         ${settings?.[row.key] ? 'translate-x-6' : 'translate-x-1'}
+                       `}
                                         />
                                     </motion.button>
                                 </div>
                             ))}
+                            {settingsError && (
+                                <p className="text-sm text-red-600 dark:text-red-400 tracking-tight">{settingsError}</p>
+                            )}
                         </div>
                     </Card>
 
@@ -126,7 +183,7 @@ export function Profile() {
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                             variant="danger"
-                            onClick={logout}
+                            onClick={() => void logout()}
                             className="w-full flex items-center justify-center space-x-2"
                         >
                             <LogOut size={16} />

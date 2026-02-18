@@ -12,7 +12,8 @@ func TestGenerateJWT(t *testing.T) {
 	os.Setenv("JWT_SECRET", secret)
 
 	userID := "user-456"
-	tokenString, err := GenerateJWT(userID)
+	sessionID := "session-123"
+	tokenString, err := GenerateJWT(userID, sessionID)
 	if err != nil {
 		t.Fatalf("GenerateJWT failed: %v", err)
 	}
@@ -34,5 +35,9 @@ func TestGenerateJWT(t *testing.T) {
 	}
 	if _, ok := claims["exp"]; !ok {
 		t.Fatalf("expected exp claim")
+	}
+	gotSessionID, ok := claims["session_id"].(string)
+	if !ok || gotSessionID != sessionID {
+		t.Fatalf("expected session_id %q, got %#v", sessionID, claims["session_id"])
 	}
 }

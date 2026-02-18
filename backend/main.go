@@ -47,7 +47,19 @@ func main() {
 	redis.StartSubscriber(shutdownCtx, &workers)
 
 	// Start Fiber
-	app := fiber.New()
+	bodyLimit := 1024 * 1024 // 1MB default
+	if value := os.Getenv("API_BODY_LIMIT_BYTES"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed <= 0 {
+			log.Printf("invalid API_BODY_LIMIT_BYTES=%q, falling back to %d", value, bodyLimit)
+		} else {
+			bodyLimit = parsed
+		}
+	}
+
+	app := fiber.New(fiber.Config{
+		BodyLimit: bodyLimit,
+	})
 	app.Use(logger.New())
 
 	// Request rate limiting
@@ -113,6 +125,21 @@ func main() {
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 	}))
+
+	app.Use(func(c *fiber.Ctx) error {
+		c.Set("X-Content-Type-Options", "nosniff")
+		c.Set("X-Frame-Options", "DENY")
+		c.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		c.Set("Cross-Origin-Opener-Policy", "same-origin")
+		c.Set("Cross-Origin-Resource-Policy", "same-site")
+		c.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ws: wss: http: https:")
+		c.Set("Server", "")
+		if c.Protocol() == "https" {
+			c.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		}
+		return c.Next()
+	})
 
 	// API Routes
 	routes.SetupRoutes(app)

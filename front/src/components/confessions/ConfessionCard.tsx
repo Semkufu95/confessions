@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatTimeAgo } from "../../utils/dateUtils.tsx";
 import { motion } from "framer-motion";
+import { SafeMultilineText } from "../ui/SafeMultilineText.tsx";
 
 interface ConfessionCardProps {
     confession: Confession;
@@ -110,9 +111,11 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
 
                 {/* Content */}
                 <div className="prose prose-gray dark:prose-invert max-w-none">
-                    <p className="text-gray-900 dark:text-gray-100 leading-relaxed tracking-tight">
-                        {confession.content || "No content available."}
-                    </p>
+                    <SafeMultilineText
+                        text={confession.content || ""}
+                        paragraphClassName="text-gray-900 dark:text-gray-100 leading-relaxed tracking-tight"
+                        emptyFallback="No content available."
+                    />
                 </div>
 
                 {/* Actions */}

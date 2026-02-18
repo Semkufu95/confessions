@@ -14,11 +14,15 @@ func SetupRoutes(app *fiber.App) {
 	api.Post("/register", controllers.Register)
 	api.Get("/stats", controllers.GetRealtimeStats)
 	api.Get("/confessions", controllers.GetAllConfessions)
+	api.Get("/connections", controllers.GetAllConnections)
 	api.Get("/confessions/:id/comments", controllers.GetConfessionWithComments)
 	api.Get("/comments/:id", controllers.GetCommentsByConfession)
 
 	// ===== PROTECTED ROUTES =====
 	protected := api.Group("/", middleware.RequireAuth)
+	protected.Post("/logout", controllers.Logout)
+	protected.Get("/me/settings", controllers.GetMySettings)
+	protected.Put("/me/settings", controllers.UpdateMySettings)
 
 	// ===== CONFESSIONS =====
 	confessions := protected.Group("/confessions")
@@ -34,6 +38,10 @@ func SetupRoutes(app *fiber.App) {
 	comments.Put("/:id", controllers.UpdateComment)
 	comments.Delete("/:id", controllers.DeleteComment)
 	comments.Post("/:id/react", controllers.ReactToComment)
+
+	// ===== CONNECTIONS =====
+	connections := protected.Group("/connections")
+	connections.Post("/", controllers.CreateConnection)
 
 	// ===== REACTIONS =====
 	reactions := protected.Group("/reactions")
