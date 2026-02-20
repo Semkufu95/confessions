@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Mail, MessageSquare, Send, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -17,8 +17,16 @@ export function ContactUs() {
         message: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!showSuccessPopup) return;
+        const timeoutId = window.setTimeout(() => {
+            setShowSuccessPopup(false);
+        }, 3500);
+        return () => window.clearTimeout(timeoutId);
+    }, [showSuccessPopup]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({
@@ -34,7 +42,8 @@ export function ContactUs() {
         setSubmitError(null);
         try {
             await ContactService.sendMessage(formData);
-            setIsSubmitted(true);
+            setFormData({ name: '', email: '', subject: '', message: '' });
+            setShowSuccessPopup(true);
         } catch (error: unknown) {
             const message =
                 typeof error === 'object' &&
@@ -49,55 +58,34 @@ export function ContactUs() {
         }
     };
 
-    if (isSubmitted) {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4">
-                <div className="max-w-md mx-auto text-center">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.6 }}
-                        className="space-y-6"
-                    >
-                        <div className="w-20 h-20 mx-auto bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-                            <CheckCircle size={40} className="text-green-600 dark:text-green-400" />
-                        </div>
-
-                        <div className="space-y-3">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-                                Message Sent!
-                            </h1>
-                            <p className="text-gray-600 dark:text-gray-400 tracking-tight">
-                                Thank you for reaching out. We'll get back to you within 24 hours.
-                            </p>
-                        </div>
-
-                        <div className="space-y-3">
-                            <Button
-                                onClick={() => navigate('/')}
-                                className="w-full"
-                            >
-                                Return to Home
-                            </Button>
-                            <Button
-                                onClick={() => {
-                                    setIsSubmitted(false);
-                                    setFormData({ name: '', email: '', subject: '', message: '' });
-                                }}
-                                variant="ghost"
-                                className="w-full"
-                            >
-                                Send Another Message
-                            </Button>
-                        </div>
-                    </motion.div>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen p-4 md:p-6">
+            <AnimatePresence>
+                {showSuccessPopup && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-green-200 bg-white/95 p-4 shadow-lg backdrop-blur dark:border-green-800/60 dark:bg-gray-900/95"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <div className="flex items-start gap-3">
+                            <CheckCircle size={18} className="mt-0.5 text-green-600 dark:text-green-400" />
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
+                                    Email sent successfully
+                                </p>
+                                <p className="mt-1 text-sm text-gray-700 dark:text-gray-300 tracking-tight">
+                                    Your message has been delivered. You can send another one below.
+                                </p>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="max-w-2xl mx-auto space-y-6">
                 {/* Header */}
                 <motion.div

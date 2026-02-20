@@ -23,8 +23,10 @@ export function Home() {
 
     const todayConfessions = confessions.filter(confession => {
         const confessionDate = new Date(confession.timeStamp);
-        const today = new Date();
-        return confessionDate.toDateString() === today.toDateString();
+        const now = new Date();
+        const diffMs = now.getTime() - confessionDate.getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        return diffMs >= 0 && diffMs <= sevenDaysMs;
     });
 
     const trendingConfessions = confessions.filter(confession => confession.trending || confession.likes >= 5 || confession.stars >= 3);
@@ -193,13 +195,13 @@ export function Home() {
                                 {activeTab === 'today' ? <Clock size={24} /> : activeTab === 'trending' ? <TrendingUp size={24} /> : <Star size={24} />}
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
-                                {activeTab === 'today' && 'No confessions today'}
+                                {activeTab === 'today' && 'No confessions in the last 7 days'}
                                 {activeTab === 'trending' && 'No trending confessions'}
                                 {activeTab === 'starred' && 'No starred confessions yet'}
                             </h3>
                             <p className="text-gray-600 dark:text-gray-400 tracking-tight">
                                 {activeTab === 'today'
-                                    ? 'Be the first to share something today!'
+                                    ? 'Be the first to share something this week!'
                                     : activeTab === 'trending'
                                         ? 'Check back later for trending confessions.'
                                         : 'Star confessions to see them here.'

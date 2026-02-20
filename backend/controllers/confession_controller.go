@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -236,11 +237,8 @@ func ShareConfession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to share confession"})
 	}
 
-	frontendBaseURL := strings.TrimSpace(os.Getenv("FRONTEND_BASE_URL"))
-	if frontendBaseURL == "" {
-		frontendBaseURL = "http://localhost:5173"
-	}
-	shareURL := strings.TrimRight(frontendBaseURL, "/") + "/confession/" + confession.ID.String()
+	frontendBaseURL := resolveFrontendBaseURL(c)
+	shareURL := frontendBaseURL + "/confession/" + confession.ID.String()
 
 	data, _ := json.Marshal(confession)
 	redis.Client.Publish(redis.Ctx, "confessions:confession:updated", data)
@@ -250,6 +248,25 @@ func ShareConfession(c *fiber.Ctx) error {
 		"share_url":  shareURL,
 		"confession": confession,
 	})
+}
+
+func resolveFrontendBaseURL(c *fiber.Ctx) string {
+	configured := strings.TrimSpace(os.Getenv("FRONTEND_BASE_URL"))
+	if configured != "" {
+		return strings.TrimRight(configured, "/")
+	}
+
+	origin := strings.TrimSpace(c.Get("Origin"))
+	if origin != "" {
+		if parsed, err := url.Parse(origin); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+			host := strings.ToLower(parsed.Hostname())
+			if host != "localhost" && host != "127.0.0.1" {
+				return strings.TrimRight(origin, "/")
+			}
+		}
+	}
+
+	return "https://confessions.africa"
 }
 
 // GetConfessionWithComments fetches a confession and all its comments
