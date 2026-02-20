@@ -21,6 +21,7 @@ import { useAuth } from "../context/AuthContext";
 import { useApp } from "../context/AppContext";
 import { formatTimeAgo } from "../utils/dateUtils";
 import { SafeMultilineText } from "../components/ui/SafeMultilineText";
+import { ConfessionService } from "../services/ConfessionService";
 
 const CONFESSION_CATEGORIES = ["general", "love", "friendship", "work", "family"];
 
@@ -48,6 +49,8 @@ export function ConfessionDetail() {
     const [editCategory, setEditCategory] = useState("");
     const [isSavingEdit, setIsSavingEdit] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
     const confession = confessions.find((c) => c.id === id);
 
@@ -173,6 +176,37 @@ export function ConfessionDetail() {
 
         await deleteConfession(confession.id);
         navigate("/");
+    };
+
+    const handleShare = async () => {
+        if (isSharing) return;
+        setIsSharing(true);
+        setShareFeedback(null);
+        try {
+            const fallbackURL = `${window.location.origin}/confession/${confession.id}`;
+            const result = await ConfessionService.share(confession.id).catch(() => ({
+                shareUrl: fallbackURL,
+                confession,
+            }));
+            const shareURL = result.shareUrl || fallbackURL;
+
+            if (navigator.share) {
+                await navigator.share({
+                    title: "Confession",
+                    text: "Check out this confession",
+                    url: shareURL,
+                });
+            } else if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareURL);
+                setShareFeedback("Link copied");
+            } else {
+                setShareFeedback(shareURL);
+            }
+        } catch {
+            setShareFeedback("Share canceled");
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     const categoryColors: Record<string, string> = {
@@ -344,13 +378,17 @@ export function ConfessionDetail() {
                                     <Button
                                         variant="ghost"
                                         className="flex items-center space-x-2 px-4 py-2"
-                                        disabled={!user}
+                                        disabled={isSharing}
+                                        onClick={() => void handleShare()}
                                     >
                                         <Share2 size={18} />
                                         <span>{confession.shares}</span>
                                     </Button>
                                 </div>
                             </div>
+                            {shareFeedback && (
+                                <p className="text-xs text-gray-600 dark:text-gray-400">{shareFeedback}</p>
+                            )}
                         </div>
                     </Card>
                 </motion.div>

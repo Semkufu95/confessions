@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"time"
 
@@ -84,6 +85,25 @@ func GetAllConfessions(c *fiber.Ctx) error {
 	var confessions []models.Confession
 	if err := config.DB.Order("created_at desc").Find(&confessions).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch confessions"})
+	}
+
+	type commentCountRow struct {
+		ConfessionID uuid.UUID
+		Total        int64
+	}
+
+	var countRows []commentCountRow
+	_ = config.DB.Model(&models.Comment{}).
+		Select("confession_id, COUNT(*) as total").
+		Group("confession_id").
+		Scan(&countRows).Error
+
+	commentCountByConfessionID := make(map[uuid.UUID]int, len(countRows))
+	for _, row := range countRows {
+		commentCountByConfessionID[row.ConfessionID] = int(row.Total)
+	}
+	for i := range confessions {
+		confessions[i].Comments = commentCountByConfessionID[confessions[i].ID]
 	}
 
 	return c.JSON(confessions)
@@ -204,6 +224,34 @@ func StarConfession(c *fiber.Ctx) error {
 	return c.JSON(confession)
 }
 
+func ShareConfession(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var confession models.Confession
+	if err := config.DB.First(&confession, "id = ?", id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Confession not found"})
+	}
+
+	confession.Shares += 1
+	if err := config.DB.Save(&confession).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to share confession"})
+	}
+
+	frontendBaseURL := strings.TrimSpace(os.Getenv("FRONTEND_BASE_URL"))
+	if frontendBaseURL == "" {
+		frontendBaseURL = "http://localhost:5173"
+	}
+	shareURL := strings.TrimRight(frontendBaseURL, "/") + "/confession/" + confession.ID.String()
+
+	data, _ := json.Marshal(confession)
+	redis.Client.Publish(redis.Ctx, "confessions:confession:updated", data)
+
+	return c.JSON(fiber.Map{
+		"message":    "Confession shared",
+		"share_url":  shareURL,
+		"confession": confession,
+	})
+}
+
 // GetConfessionWithComments fetches a confession and all its comments
 func GetConfessionWithComments(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -214,9 +262,11 @@ func GetConfessionWithComments(c *fiber.Ctx) error {
 	}
 
 	var comments []models.Comment
-	if err := config.DB.Where("confession_id = ?", id).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := config.DB.Preload("Author").Where("confession_id = ?", id).Order("created_at asc").Find(&comments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch comments"})
 	}
+	confession.Comments = len(comments)
+	_ = config.DB.Model(&models.Confession{}).Where("id = ?", confession.ID).Update("comments", confession.Comments).Error
 
 	result := fiber.Map{
 		"confession": confession,

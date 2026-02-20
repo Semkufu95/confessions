@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Comment, Confession, Connection, CreateConnectionInput, FriendFollower } from "../types";
+import type {
+    Comment,
+    Confession,
+    Connection,
+    CreateConnectionInput,
+    FriendFollower,
+    FriendRequestInboxItem,
+} from "../types";
 import { ConfessionService } from "../services/ConfessionService";
 import { ConnectionService } from "../services/ConnectionService";
 import { useAuth } from "./AuthContext";
@@ -18,11 +25,13 @@ interface AppContextType {
     starredConfessions: Confession[];
     connections: Connection[];
     friends: FriendFollower[];
+    pendingFriendRequests: FriendRequestInboxItem[];
     notifications: RealtimeNotification[];
     isLoadingConfessions: boolean;
     confessionsError: string | null;
     refreshConfessions: () => Promise<void>;
     refreshFriends: () => Promise<void>;
+    respondToFriendRequest: (requestId: string, action: "accept" | "decline") => Promise<void>;
     toggleStar: (confessionId: string) => Promise<void>;
     toggleLike: (confessionId: string, type: "like" | "boo") => Promise<void>;
     toggleCommentLike: (confessionId: string, commentId: string, type: "like" | "boo") => Promise<void>;
@@ -47,6 +56,7 @@ const DEFAULT_NOTIFICATION_CHANNELS = [
     "confessions:confession:created",
     "confessions:comment:created",
     "connections:friend:added",
+    "connections:friend:request:updated",
 ];
 
 function getEnabledNotificationChannels(): Set<string> {
@@ -181,14 +191,45 @@ function buildNotification(event: RealtimeEvent): Omit<RealtimeNotification, "id
                 message: `${senderUsername} requested to connect on ${connectionTitle}.`,
                 variant: "success",
             };
+        case "connections:friend:request:updated": {
+            const status = typeof event.payload.status === "string" ? event.payload.status.toLowerCase() : "";
+            if (status === "accepted") {
+                return {
+                    title: "Connection accepted",
+                    message: `${senderUsername} is now connected to ${connectionTitle}.`,
+                    variant: "success",
+                };
+            }
+            if (status === "declined") {
+                return {
+                    title: "Connection declined",
+                    message: `${senderUsername} declined a request on ${connectionTitle}.`,
+                    variant: "warning",
+                };
+            }
+            return {
+                title: "Connection updated",
+                message: `${senderUsername} updated a connection request.`,
+                variant: "info",
+            };
+        }
         default:
             return null;
     }
 }
 
-function eventTargetUserID(event: RealtimeEvent): string | null {
-    if (event.channel !== "connections:friend:added") return null;
-    return typeof event.payload.receiver_id === "string" ? event.payload.receiver_id : null;
+function eventTargetUserIDs(event: RealtimeEvent): string[] {
+    if (event.channel === "connections:friend:added") {
+        return typeof event.payload.receiver_id === "string" ? [event.payload.receiver_id] : [];
+    }
+    if (event.channel === "connections:friend:request:updated") {
+        const ids = [
+            typeof event.payload.receiver_id === "string" ? event.payload.receiver_id : null,
+            typeof event.payload.sender_id === "string" ? event.payload.sender_id : null,
+        ].filter((value): value is string => Boolean(value));
+        return [...new Set(ids)];
+    }
+    return [];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -216,6 +257,7 @@ export function AppProvider({ children }: AppProviderProps) {
     const [confessionsError, setConfessionsError] = useState<string | null>(null);
     const [connections, setConnections] = useState<Connection[]>([]);
     const [friends, setFriends] = useState<FriendFollower[]>([]);
+    const [pendingFriendRequests, setPendingFriendRequests] = useState<FriendRequestInboxItem[]>([]);
     const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
     const [starredIds, setStarredIds] = useState<string[]>(() => {
         const saved = localStorage.getItem("starredConfessionIds");
@@ -273,6 +315,8 @@ export function AppProvider({ children }: AppProviderProps) {
                     const prev = previousById.get(item.id);
                     return {
                         ...item,
+                        comments: prev?.comments && prev.comments.length > 0 ? prev.comments : item.comments,
+                        commentsCount: item.commentsCount,
                         isStarred: starredIds.includes(item.id),
                         isLiked: prev?.isLiked ?? false,
                         isBooed: prev?.isBooed ?? false,
@@ -300,15 +344,18 @@ export function AppProvider({ children }: AppProviderProps) {
     const refreshFriends = async () => {
         if (!user) {
             setFriends([]);
+            setPendingFriendRequests([]);
             return;
         }
 
         try {
             const data = await ConnectionService.getMyFriends();
-            setFriends(data);
+            setFriends(data.friends);
+            setPendingFriendRequests(data.pending);
         } catch (error) {
             console.error("Failed to fetch friends:", error);
             setFriends([]);
+            setPendingFriendRequests([]);
         }
     };
 
@@ -353,14 +400,21 @@ export function AppProvider({ children }: AppProviderProps) {
             }
 
             if (parsed.channel === "connections:friend:added") {
-                const targetUserID = eventTargetUserID(parsed);
-                if (targetUserID && user?.id === targetUserID) {
+                const targetUserIDs = eventTargetUserIDs(parsed);
+                if (user?.id && targetUserIDs.includes(user.id)) {
                     void refreshFriends();
                 }
             }
 
-            const targetUserID = eventTargetUserID(parsed);
-            if (targetUserID && user?.id !== targetUserID) {
+            if (parsed.channel === "connections:friend:request:updated") {
+                const targetUserIDs = eventTargetUserIDs(parsed);
+                if (user?.id && targetUserIDs.includes(user.id)) {
+                    void refreshFriends();
+                }
+            }
+
+            const targetUserIDs = eventTargetUserIDs(parsed);
+            if (targetUserIDs.length > 0 && (!user?.id || !targetUserIDs.includes(user.id))) {
                 return;
             }
 
@@ -543,6 +597,16 @@ export function AppProvider({ children }: AppProviderProps) {
         }
     };
 
+    const respondToFriendRequest = async (requestId: string, action: "accept" | "decline") => {
+        try {
+            await ConnectionService.respondToFriendRequest(requestId, action);
+            await refreshFriends();
+        } catch (error) {
+            console.error("Failed to respond to friend request:", error);
+            throw error;
+        }
+    };
+
     const starredConfessions = useMemo(
         () => confessions.filter((confession) => starredIds.includes(confession.id)),
         [confessions, starredIds]
@@ -555,11 +619,13 @@ export function AppProvider({ children }: AppProviderProps) {
         starredConfessions,
         connections,
         friends,
+        pendingFriendRequests,
         notifications,
         isLoadingConfessions,
         confessionsError,
         refreshConfessions,
         refreshFriends,
+        respondToFriendRequest,
         toggleStar,
         toggleLike,
         toggleCommentLike,

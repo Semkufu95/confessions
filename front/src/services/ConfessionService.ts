@@ -24,9 +24,17 @@ type BackendConfession = {
     likes?: number;
     boos?: number;
     stars?: number;
+    shares?: number;
     comments?: number;
+    trending?: boolean;
     category?: Confession["category"];
     created_at?: string;
+};
+
+type BackendShareResponse = {
+    share_url?: string;
+    shareUrl?: string;
+    confession?: BackendConfession;
 };
 
 function normalizeUser(user?: BackendUser): User {
@@ -65,9 +73,9 @@ function normalizeConfession(confession: BackendConfession, comments: Comment[] 
         likes: confession.likes || 0,
         boos: confession.boos || 0,
         stars: confession.stars || 0,
-        shares: 0,
+        shares: confession.shares || 0,
         category: normalizedCategory,
-        trending: false,
+        trending: Boolean(confession.trending),
         comments,
         commentsCount: confession.comments ?? comments.length,
         isLiked: false,
@@ -125,5 +133,18 @@ export const ConfessionService = {
     async reactComment(commentId: string, type: "like" | "boo"): Promise<Comment> {
         const res = await api.post<BackendComment>(`/comments/${commentId}/react`, { type });
         return normalizeComment(res.data);
+    },
+
+    async share(id: string): Promise<{ confession: Confession; shareUrl: string }> {
+        const res = await api.post<BackendShareResponse>(`/confessions/${id}/share`);
+        const shareUrl = res.data?.share_url || res.data?.shareUrl || `${window.location.origin}/confession/${id}`;
+        const confession = normalizeConfession(
+            res.data?.confession || {
+                id,
+                content: "",
+                shares: 0,
+            }
+        );
+        return { confession, shareUrl };
     },
 };

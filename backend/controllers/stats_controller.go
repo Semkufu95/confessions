@@ -1,17 +1,13 @@
 package controllers
 
 import (
-	"sync"
 	"time"
 
+	"github.com/Semkufu95/confessions/Backend/config"
+	"github.com/Semkufu95/confessions/Backend/models"
 	"github.com/Semkufu95/confessions/Backend/websockets"
 	"github.com/gofiber/fiber/v2"
 )
-
-type statsObservation struct {
-	timestamp time.Time
-	online    int
-}
 
 type communityStats struct {
 	CurrentOnline  int `json:"currentOnline"`
@@ -21,52 +17,43 @@ type communityStats struct {
 	MaxVisitors1yr int `json:"maxVisitors1yr"`
 }
 
-var (
-	statsMu      sync.Mutex
-	statsHistory []statsObservation
-)
-
 func GetRealtimeStats(c *fiber.Ctx) error {
-	now := time.Now()
+	now := time.Now().UTC()
 	currentOnline := websockets.ClientCount()
 
-	statsMu.Lock()
-	statsHistory = append(statsHistory, statsObservation{
-		timestamp: now,
-		online:    currentOnline,
-	})
-
-	// Keep only one-year history in memory because maxVisitors1yr is the longest window.
 	oneYearCutoff := now.AddDate(-1, 0, 0)
-	firstValid := 0
-	for firstValid < len(statsHistory) && statsHistory[firstValid].timestamp.Before(oneYearCutoff) {
-		firstValid++
-	}
-	if firstValid > 0 {
-		statsHistory = statsHistory[firstValid:]
+
+	if config.DB != nil {
+		_ = config.DB.Create(&models.StatsObservation{
+			ObservedAt: now,
+			Online:     currentOnline,
+		}).Error
+
+		// Keep one-year rolling observations.
+		_ = config.DB.Where("observed_at < ?", oneYearCutoff).Delete(&models.StatsObservation{}).Error
 	}
 
-	result := communityStats{
+	return c.JSON(communityStats{
 		CurrentOnline:  currentOnline,
-		MaxVisitors24h: maxOnlineSinceLocked(now.Add(-24 * time.Hour)),
-		MaxVisitors7d:  maxOnlineSinceLocked(now.AddDate(0, 0, -7)),
-		MaxVisitors1m:  maxOnlineSinceLocked(now.AddDate(0, -1, 0)),
-		MaxVisitors1yr: maxOnlineSinceLocked(oneYearCutoff),
-	}
-	statsMu.Unlock()
-
-	return c.JSON(result)
+		MaxVisitors24h: maxOnlineSince(now.Add(-24 * time.Hour)),
+		MaxVisitors7d:  maxOnlineSince(now.AddDate(0, 0, -7)),
+		MaxVisitors1m:  maxOnlineSince(now.AddDate(0, -1, 0)),
+		MaxVisitors1yr: maxOnlineSince(oneYearCutoff),
+	})
 }
 
-func maxOnlineSinceLocked(cutoff time.Time) int {
-	maxOnline := 0
-	for _, item := range statsHistory {
-		if item.timestamp.Before(cutoff) {
-			continue
-		}
-		if item.online > maxOnline {
-			maxOnline = item.online
-		}
+func maxOnlineSince(cutoff time.Time) int {
+	if config.DB == nil {
+		return 0
 	}
-	return maxOnline
+
+	var maxOnline int64
+	if err := config.DB.Model(&models.StatsObservation{}).
+		Select("COALESCE(MAX(online), 0)").
+		Where("observed_at >= ?", cutoff.UTC()).
+		Scan(&maxOnline).Error; err != nil {
+		return 0
+	}
+
+	return int(maxOnline)
 }

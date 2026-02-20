@@ -15,8 +15,12 @@ func registerRoutes(api fiber.Router) {
 	// ===== AUTH (Public) =====
 	api.Post("/login", controllers.Login)
 	api.Post("/register", controllers.Register)
+	api.Get("/verify-email", controllers.VerifyEmail)
+	api.Post("/verify-email/resend", controllers.ResendVerificationEmail)
 	api.Get("/stats", controllers.GetRealtimeStats)
+	api.Post("/contact", controllers.SendContactMessage)
 	api.Get("/confessions", controllers.GetAllConfessions)
+	api.Post("/confessions/:id/share", controllers.ShareConfession)
 	api.Get("/connections", controllers.GetAllConnections)
 	api.Get("/connections/:id/profile", controllers.GetConnectionProfile)
 	api.Get("/confessions/:id/comments", controllers.GetConfessionWithComments)
@@ -48,6 +52,7 @@ func registerRoutes(api fiber.Router) {
 	connections := protected.Group("/connections")
 	connections.Post("/", controllers.CreateConnection)
 	connections.Post("/:id/connect", controllers.ConnectToConnection)
+	protected.Post("/me/friends/requests/:id/respond", controllers.RespondToFriendRequest)
 
 	// ===== REACTIONS =====
 	reactions := protected.Group("/reactions")

@@ -8,12 +8,14 @@ import { useApp } from '../context/AppContext';
 import { SettingsService } from '../services/SettingsService';
 import type { UserSettings } from '../types';
 import { formatTimeAgo } from '../utils/dateUtils';
+import { useNavigate } from 'react-router-dom';
 
 type SettingToggleKey = 'pushNotifications' | 'emailNotifications' | 'commentReplies' | 'newFollowers';
 
 export function Profile() {
     const { user, logout } = useAuth();
-    const { friends, refreshFriends } = useApp();
+    const { friends, pendingFriendRequests, refreshFriends } = useApp();
+    const navigate = useNavigate();
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [settingsError, setSettingsError] = useState<string | null>(null);
     const [savingKey, setSavingKey] = useState<SettingToggleKey | null>(null);
@@ -197,9 +199,15 @@ export function Profile() {
                                     Friends / Followers
                                 </h2>
                             </div>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {friends.length}
-                            </span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                    {friends.length}
+                                </span>
+                                <Button size="sm" variant="ghost" onClick={() => navigate('/friends')}>
+                                    Open friends
+                                    {pendingFriendRequests.length > 0 ? ` (${pendingFriendRequests.length})` : ''}
+                                </Button>
+                            </div>
                         </div>
 
                         {friends.length === 0 ? (

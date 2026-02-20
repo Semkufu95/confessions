@@ -1,12 +1,13 @@
 
-import {HeartIcon, Home, HomeIcon, MessageSquare, Send, User, Users} from "lucide-react";
+import { Home, HomeIcon, MessageSquare, Send, User, UserPlus, Users } from "lucide-react";
 import {useAuth} from "../../context/AuthContext.tsx";
 import {NavLink, useLocation, useNavigate} from "react-router-dom";
 import { motion } from "framer-motion";
+import { useApp } from "../../context/AppContext.tsx";
 
 const navItems = [
     { to: '/', icon: Home, label: 'Home' },
-    { to: '/starred', icon: HeartIcon, label: 'Starred' },
+    { to: '/friends', icon: UserPlus, label: 'Friends' },
     { to: '/connections', icon: Users, label: "Connections" },
     { to: '/messages', icon: Send, label: "Messages" },
     { to: '/profile', icon: User, label: 'Profile'}
@@ -14,8 +15,10 @@ const navItems = [
 
 export function Navigation() {
     const { user } = useAuth();
+    const { pendingFriendRequests } = useApp();
     const location = useLocation();
     const navigate = useNavigate();
+    const pendingRequestsCount = pendingFriendRequests.length;
 
     if (location.pathname === '/login' || location.pathname === '/signup') {
         return null;
@@ -48,6 +51,11 @@ export function Navigation() {
                                 >
                                     <Icon size={18}/>
                                     <span className="text-[10px] mt-1 font-medium leading-none">{label}</span>
+                                    {to === '/friends' && pendingRequestsCount > 0 && (
+                                        <span className="absolute -top-0.5 right-1.5 inline-flex min-w-4 h-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-semibold text-white">
+                                            {pendingRequestsCount > 9 ? "9+" : pendingRequestsCount}
+                                        </span>
+                                    )}
                                     {isActive && (
                                         <motion.div
                                             layoutId="activeTab"
@@ -73,7 +81,7 @@ export function Navigation() {
                 </div>
             </nav>
 
-            {/* DeskTop site Navigation */} // TODO: Add fixed on nav classname
+            {/* Desktop site navigation */}
             <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-gray-900 border-r
              border-gray-200 dark:border-gray-700 z-40">
                 <div className="flex flex-col w-full p-6">
@@ -101,6 +109,11 @@ export function Navigation() {
                                     >
                                         <Icon size={20} />
                                         <span className="font-medium">{label}</span>
+                                        {to === '/friends' && pendingRequestsCount > 0 && (
+                                            <span className="ml-auto inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-semibold text-white">
+                                                {pendingRequestsCount > 99 ? "99+" : pendingRequestsCount}
+                                            </span>
+                                        )}
                                         {isActive && (
                                             <motion.div
                                                 layoutId="desktopActiveTab"

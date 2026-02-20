@@ -16,7 +16,6 @@ type Comment struct {
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 
-	Author User `gorm:"foreignKey:UserID;references:ID" json:"author"` // ✅ correct
+	Author  User    `gorm:"foreignKey:UserID;references:ID" json:"author"`
+	Replies []Reply `gorm:"foreignKey:CommentID;references:ID" json:"replies,omitempty"`
 }
-
-// TODO: Define reply?

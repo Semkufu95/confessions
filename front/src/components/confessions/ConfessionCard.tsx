@@ -20,6 +20,7 @@ import { formatTimeAgo } from "../../utils/dateUtils.tsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { SafeMultilineText } from "../ui/SafeMultilineText.tsx";
 import { TextArea } from "../ui/TextArea.tsx";
+import { ConfessionService } from "../../services/ConfessionService.ts";
 
 interface ConfessionCardProps {
     confession: Confession;
@@ -39,6 +40,8 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
     const [editContent, setEditContent] = useState(confession.content || "");
     const [editCategory, setEditCategory] = useState(confession.category || "");
     const [formError, setFormError] = useState<string | null>(null);
+    const [isSharing, setIsSharing] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
@@ -128,6 +131,39 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
         await handleAction("delete", async () => {
             await deleteConfession(confession.id);
         });
+    };
+
+    const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (isSharing) return;
+
+        setIsSharing(true);
+        setShareFeedback(null);
+        try {
+            const fallbackURL = `${window.location.origin}/confession/${confession.id}`;
+            const result = await ConfessionService.share(confession.id).catch(() => ({
+                shareUrl: fallbackURL,
+                confession,
+            }));
+            const shareURL = result.shareUrl || fallbackURL;
+
+            if (navigator.share) {
+                await navigator.share({
+                    title: "Confession",
+                    text: "Check out this confession",
+                    url: shareURL,
+                });
+            } else if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(shareURL);
+                setShareFeedback("Link copied");
+            } else {
+                setShareFeedback(shareURL);
+            }
+        } catch {
+            setShareFeedback("Share canceled");
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     const categoryColors: Record<string, string> = {
@@ -297,7 +333,8 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
                                 variant="ghost"
                                 size="sm"
                                 className="flex items-center space-x-2 px-3 py-2"
-                                disabled={!user}
+                                onClick={(event) => void handleShare(event)}
+                                disabled={isSharing}
                                 aria-label="Share confession"
                             >
                                 <Share size={16} />
@@ -305,6 +342,9 @@ export function ConfessionCard({ confession, onClick }: ConfessionCardProps) {
                             </Button>
                         </div>
                     </div>
+                    {shareFeedback && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{shareFeedback}</p>
+                    )}
                 </div>
             </Card>
 

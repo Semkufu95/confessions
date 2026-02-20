@@ -53,6 +53,7 @@ func PostComment(c *fiber.Ctx) error {
 	if err := config.DB.Create(&comment).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not post comment"})
 	}
+	_ = syncConfessionCommentCount(comment.ConfessionID)
 
 	// Preload author before returning
 	if err := config.DB.Preload("Author").First(&comment, "id = ?", comment.ID).Error; err != nil {
@@ -101,6 +102,7 @@ func DeleteComment(c *fiber.Ctx) error {
 	if err := config.DB.Delete(&comment).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete comment"})
 	}
+	_ = syncConfessionCommentCount(comment.ConfessionID)
 
 	data, _ := json.Marshal(fiber.Map{"id": id, "confession_id": comment.ConfessionID})
 	redis.Client.Publish(redis.Ctx, "confessions:comment:deleted", data)
@@ -153,4 +155,17 @@ func UpdateComment(c *fiber.Ctx) error {
 	redis.Client.Publish(redis.Ctx, "confessions:comment:updated", data)
 
 	return c.JSON(comment)
+}
+
+func syncConfessionCommentCount(confessionID uuid.UUID) error {
+	var total int64
+	if err := config.DB.Model(&models.Comment{}).
+		Where("confession_id = ?", confessionID).
+		Count(&total).Error; err != nil {
+		return err
+	}
+
+	return config.DB.Model(&models.Confession{}).
+		Where("id = ?", confessionID).
+		Update("comments", total).Error
 }

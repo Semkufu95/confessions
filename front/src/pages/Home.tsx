@@ -1,8 +1,8 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Plus, TrendingUp, Clock, Filter, ChevronDown } from 'lucide-react';
+import { Plus, TrendingUp, Clock, Filter, ChevronDown, Star } from 'lucide-react';
 import { ConfessionCard } from '../components/confessions/ConfessionCard';
 import { CreateConfession } from '../components/confessions/CreateConfession';
 import { Banner } from '../components/home/Banner';
@@ -11,10 +11,10 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 
 export function Home() {
-    const { confessions, addConfession, isLoadingConfessions, confessionsError, refreshConfessions } = useApp();
+    const { confessions, starredConfessions, addConfession, isLoadingConfessions, confessionsError, refreshConfessions } = useApp();
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'today' | 'trending'>('today');
+    const [activeTab, setActiveTab] = useState<'today' | 'trending' | 'starred'>('today');
     const [showNewConfession, setShowNewConfession] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +29,8 @@ export function Home() {
 
     const trendingConfessions = confessions.filter(confession => confession.trending || confession.likes >= 5 || confession.stars >= 3);
 
-    const allConfessions = activeTab === 'today' ? todayConfessions : trendingConfessions;
+    const allConfessions =
+        activeTab === 'today' ? todayConfessions : activeTab === 'trending' ? trendingConfessions : starredConfessions;
     const totalPages = Math.ceil(allConfessions.length / confessionsPerPage);
     const startIndex = (currentPage - 1) * confessionsPerPage;
     const displayedConfessions = allConfessions.slice(0, startIndex + confessionsPerPage);
@@ -47,6 +48,10 @@ export function Home() {
         setCurrentPage(prev => prev + 1);
         setIsLoading(false);
     };
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
 
     return (
         <div className="min-h-screen p-4 md:p-6">
@@ -131,6 +136,27 @@ export function Home() {
                                 />
                             )}
                         </button>
+
+                        <button
+                            onClick={() => setActiveTab('starred')}
+                            className={`
+                relative flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors tracking-tight
+                ${activeTab === 'starred'
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                            }
+              `}
+                        >
+                            <Star size={16} />
+                            <span>Starred</span>
+                            {activeTab === 'starred' && (
+                                <motion.div
+                                    layoutId="activeTab"
+                                    className="absolute inset-0 bg-white dark:bg-gray-700 rounded-xl shadow-sm"
+                                    style={{ zIndex: -1 }}
+                                />
+                            )}
+                        </button>
                     </div>
 
                     <Button variant="ghost" size="sm" className="flex items-center space-x-2">
@@ -164,15 +190,19 @@ export function Home() {
                     {allConfessions.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                                {activeTab === 'today' ? <Clock size={24} /> : <TrendingUp size={24} />}
+                                {activeTab === 'today' ? <Clock size={24} /> : activeTab === 'trending' ? <TrendingUp size={24} /> : <Star size={24} />}
                             </div>
                             <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 tracking-tight">
-                                No confessions {activeTab === 'today' ? 'today' : 'trending'}
+                                {activeTab === 'today' && 'No confessions today'}
+                                {activeTab === 'trending' && 'No trending confessions'}
+                                {activeTab === 'starred' && 'No starred confessions yet'}
                             </h3>
                             <p className="text-gray-600 dark:text-gray-400 tracking-tight">
                                 {activeTab === 'today'
                                     ? 'Be the first to share something today!'
-                                    : 'Check back later for trending confessions.'
+                                    : activeTab === 'trending'
+                                        ? 'Check back later for trending confessions.'
+                                        : 'Star confessions to see them here.'
                                 }
                             </p>
                         </div>

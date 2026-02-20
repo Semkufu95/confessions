@@ -1,5 +1,14 @@
 import { api } from "../api/api";
-import type { Connection, ConnectionProfile, ConnectionRequestResult, CreateConnectionInput, FriendFollower, User } from "../types";
+import type {
+    Connection,
+    ConnectionProfile,
+    ConnectionRequestResult,
+    CreateConnectionInput,
+    FriendFollower,
+    FriendRequestInboxItem,
+    FriendsOverview,
+    User,
+} from "../types";
 
 type BackendUser = {
     id?: string;
@@ -65,6 +74,27 @@ type BackendFriendFollower = {
     latestConnectionTitle?: string;
 };
 
+type BackendFriendRequestInboxItem = {
+    request_id?: string;
+    requestId?: string;
+    connection_id?: string;
+    connectionId?: string;
+    connection_title?: string;
+    connectionTitle?: string;
+    sender_id?: string;
+    senderId?: string;
+    username?: string;
+    email?: string;
+    status?: string;
+    requested_at?: string;
+    requestedAt?: string;
+};
+
+type BackendFriendsOverview = {
+    friends?: BackendFriendFollower[];
+    pending?: BackendFriendRequestInboxItem[];
+};
+
 function normalizeUser(user?: BackendUser): User {
     return {
         id: user?.id || "anonymous",
@@ -120,6 +150,23 @@ function normalizeFriendFollower(item: BackendFriendFollower): FriendFollower {
     };
 }
 
+function normalizeFriendRequest(item: BackendFriendRequestInboxItem): FriendRequestInboxItem {
+    const rawStatus = (item.status || "").toLowerCase();
+    const status: FriendRequestInboxItem["status"] =
+        rawStatus === "accepted" ? "accepted" : rawStatus === "declined" ? "declined" : "pending";
+
+    return {
+        requestId: item.request_id || item.requestId || "",
+        connectionId: item.connection_id || item.connectionId || "",
+        connectionTitle: item.connection_title || item.connectionTitle || "Connection",
+        senderId: item.sender_id || item.senderId || "",
+        username: item.username || "Unknown",
+        email: item.email || "",
+        status,
+        requestedAt: item.requested_at || item.requestedAt || new Date().toISOString(),
+    };
+}
+
 export const ConnectionService = {
     async getAll(): Promise<Connection[]> {
         const res = await api.get<BackendConnection[]>("/connections");
@@ -153,8 +200,26 @@ export const ConnectionService = {
         return normalizeConnectionProfile(res.data);
     },
 
-    async getMyFriends(): Promise<FriendFollower[]> {
-        const res = await api.get<BackendFriendFollower[]>("/me/friends");
-        return (res.data || []).map(normalizeFriendFollower);
+    async getMyFriends(): Promise<FriendsOverview> {
+        const res = await api.get<BackendFriendsOverview | BackendFriendFollower[]>("/me/friends");
+        if (Array.isArray(res.data)) {
+            return {
+                friends: res.data.map(normalizeFriendFollower),
+                pending: [],
+            };
+        }
+
+        return {
+            friends: (res.data?.friends || []).map(normalizeFriendFollower),
+            pending: (res.data?.pending || []).map(normalizeFriendRequest),
+        };
+    },
+
+    async respondToFriendRequest(requestId: string, action: "accept" | "decline"): Promise<ConnectionRequestResult> {
+        const res = await api.post<BackendConnectResponse>(`/me/friends/requests/${requestId}/respond`, { action });
+        return {
+            status: res.data?.request?.status || (action === "accept" ? "accepted" : "declined"),
+            message: res.data?.message || `Request ${action}ed`,
+        };
     },
 };

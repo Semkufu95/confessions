@@ -13,10 +13,9 @@ type Confession struct {
 	Likes     int       `gorm:"type:int;not null;default:0" json:"likes"`
 	Boos      int       `gorm:"type:int;not null;default:0" json:"boos"`
 	Stars     int       `gorm:"type:int;not null;default:0" json:"stars"`
+	Shares    int       `gorm:"type:int;not null;default:0" json:"shares"`
 	Comments  int       `gorm:"type:int;not null;default:0" json:"comments"`
 	Category  string    `gorm:"type:text;not null" json:"category"`
+	Trending  bool      `gorm:"type:boolean;not null;default:false" json:"trending"`
 	CreatedAt time.Time `json:"created_at"`
 }
-
-// TODO: Add likes, boos, stars, shares and comments on the confession.
-// TODO: Add a category if (work, love, life) && Add a trending (boolean)

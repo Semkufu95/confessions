@@ -86,6 +86,22 @@ export interface FriendFollower {
     latestConnectionTitle: string;
 }
 
+export interface FriendRequestInboxItem {
+    requestId: string;
+    connectionId: string;
+    connectionTitle: string;
+    senderId: string;
+    username: string;
+    email: string;
+    status: "pending" | "accepted" | "declined";
+    requestedAt: string;
+}
+
+export interface FriendsOverview {
+    friends: FriendFollower[];
+    pending: FriendRequestInboxItem[];
+}
+
 export interface CreateConnectionInput {
     title: string;
     description: string;

@@ -38,11 +38,13 @@ func InitDB() {
 		&models.User{},
 		&models.Confession{},
 		&models.Comment{},
+		&models.Reply{},
 		&models.Reaction{},
 		&models.Connection{},
 		&models.ConnectionRequest{},
 		&models.Session{},
 		&models.UserSettings{},
+		&models.StatsObservation{},
 	)
 	if err != nil {
 		log.Fatal("Migration failed: ", err)

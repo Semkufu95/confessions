@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { TextArea } from '../components/ui/TextArea';
 import { useNavigate } from 'react-router-dom';
+import { ContactService } from '../services/ContactService';
 
 export function ContactUs() {
     const navigate = useNavigate();
@@ -17,23 +18,35 @@ export function ContactUs() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({
             ...prev,
             [e.target.name]: e.target.value,
         }));
+        setSubmitError(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        setIsSubmitting(false);
-        setIsSubmitted(true);
+        setSubmitError(null);
+        try {
+            await ContactService.sendMessage(formData);
+            setIsSubmitted(true);
+        } catch (error: unknown) {
+            const message =
+                typeof error === 'object' &&
+                error !== null &&
+                'response' in error &&
+                typeof (error as { response?: { data?: { error?: unknown } } }).response?.data?.error === 'string'
+                    ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+                    : 'Failed to send message. Please try again.';
+            setSubmitError(message || 'Failed to send message. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (isSubmitted) {
@@ -213,6 +226,9 @@ export function ContactUs() {
                                 <Send size={16} />
                                 <span>Send Message</span>
                             </Button>
+                            {submitError && (
+                                <p className="text-sm text-red-600 dark:text-red-400 tracking-tight">{submitError}</p>
+                            )}
                         </form>
                     </Card>
                 </motion.div>
