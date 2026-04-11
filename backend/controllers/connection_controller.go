@@ -26,8 +26,7 @@ type connectionInput struct {
 type connectionAuthorResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt string    `json:"createdAt"`
+	CreatedAt string    `json:"created_at"`
 }
 
 type connectionResponse struct {
@@ -220,9 +219,7 @@ func ConnectToConnection(c *fiber.Ctx) error {
 					"receiver_id":      connection.UserID.String(),
 					"status":           existing.Status,
 				}
-				if data, marshalErr := json.Marshal(eventPayload); marshalErr == nil {
-					redis.Client.Publish(redis.Ctx, "connections:friend:added", data)
-				}
+				redis.PublishJSON("connections:friend:added", eventPayload)
 			}
 
 			return c.JSON(fiber.Map{
@@ -266,9 +263,7 @@ func ConnectToConnection(c *fiber.Ctx) error {
 			"receiver_id":      connection.UserID.String(),
 			"status":           request.Status,
 		}
-		if data, marshalErr := json.Marshal(eventPayload); marshalErr == nil {
-			redis.Client.Publish(redis.Ctx, "connections:friend:added", data)
-		}
+		redis.PublishJSON("connections:friend:added", eventPayload)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -403,9 +398,7 @@ func RespondToFriendRequest(c *fiber.Ctx) error {
 			"receiver_id":      request.ReceiverID.String(),
 			"status":           request.Status,
 		}
-		if data, marshalErr := json.Marshal(eventPayload); marshalErr == nil {
-			redis.Client.Publish(redis.Ctx, "connections:friend:request:updated", data)
-		}
+		redis.PublishJSON("connections:friend:request:updated", eventPayload)
 	}
 
 	return c.JSON(fiber.Map{
@@ -491,7 +484,6 @@ func mapConnectionResponse(item models.Connection) connectionResponse {
 		Author: connectionAuthorResponse{
 			ID:        item.Author.ID,
 			Username:  item.Author.Username,
-			Email:     item.Author.Email,
 			CreatedAt: item.Author.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
 	}

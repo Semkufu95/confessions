@@ -44,6 +44,7 @@ func registerRoutes(api fiber.Router) {
 	// ===== COMMENTS =====
 	comments := protected.Group("/comments")
 	comments.Post("/:id", controllers.PostComment)
+	comments.Post("/:id/replies", controllers.PostReply)
 	comments.Put("/:id", controllers.UpdateComment)
 	comments.Delete("/:id", controllers.DeleteComment)
 	comments.Post("/:id/react", controllers.ReactToComment)

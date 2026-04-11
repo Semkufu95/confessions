@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"net/url"
 	"os"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/Semkufu95/confessions/Backend/redis"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 var allowedConfessionCategories = map[string]struct{}{
@@ -75,8 +75,7 @@ func CreateConfession(c *fiber.Ctx) error {
 	}
 
 	// 🔹 Publish event to Redis for real-time updates
-	data, _ := json.Marshal(confession)
-	redis.Client.Publish(redis.Ctx, "confessions:confession:created", data)
+	redis.PublishJSON("confessions:confession:created", confession)
 
 	return c.JSON(confession)
 }
@@ -140,13 +139,12 @@ func DeleteConfession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You cannot delete this confession"})
 	}
 
-	if err := config.DB.Delete(&confession).Error; err != nil {
+	if err := deleteConfessionTree(confession.ID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete confession"})
 	}
 
 	// 🔹 Publish delete event
-	data, _ := json.Marshal(fiber.Map{"id": id})
-	redis.Client.Publish(redis.Ctx, "confessions:confession:deleted", data)
+	redis.PublishJSON("confessions:confession:deleted", fiber.Map{"id": id})
 
 	return c.JSON(fiber.Map{"message": "Confession deleted"})
 }
@@ -199,8 +197,7 @@ func UpdateConfession(c *fiber.Ctx) error {
 	}
 
 	// publish update event
-	data, _ := json.Marshal(confession)
-	redis.Client.Publish(redis.Ctx, "confessions:confession:updated", data)
+	redis.PublishJSON("confessions:confession:updated", confession)
 
 	return c.JSON(confession)
 }
@@ -219,8 +216,7 @@ func StarConfession(c *fiber.Ctx) error {
 	}
 
 	// publish star event
-	data, _ := json.Marshal(confession)
-	redis.Client.Publish(redis.Ctx, "confessions:confession:starred", data)
+	redis.PublishJSON("confessions:confession:starred", confession)
 
 	return c.JSON(confession)
 }
@@ -240,8 +236,7 @@ func ShareConfession(c *fiber.Ctx) error {
 	frontendBaseURL := resolveFrontendBaseURL(c)
 	shareURL := frontendBaseURL + "/confession/" + confession.ID.String()
 
-	data, _ := json.Marshal(confession)
-	redis.Client.Publish(redis.Ctx, "confessions:confession:updated", data)
+	redis.PublishJSON("confessions:confession:updated", confession)
 
 	return c.JSON(fiber.Map{
 		"message":    "Confession shared",
@@ -257,12 +252,21 @@ func resolveFrontendBaseURL(c *fiber.Ctx) string {
 	}
 
 	origin := strings.TrimSpace(c.Get("Origin"))
-	if origin != "" {
-		if parsed, err := url.Parse(origin); err == nil && parsed.Scheme != "" && parsed.Host != "" {
-			host := strings.ToLower(parsed.Hostname())
-			if host != "localhost" && host != "127.0.0.1" {
-				return strings.TrimRight(origin, "/")
-			}
+	if origin != "" && strings.HasPrefix(origin, "http://localhost") {
+		return strings.TrimRight(origin, "/")
+	}
+
+	scheme := strings.TrimSpace(c.Get("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = c.Protocol()
+	}
+	host := strings.TrimSpace(c.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Get("Host"))
+	}
+	if scheme != "" && host != "" {
+		if parsed, err := url.Parse(scheme + "://" + host); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+			return strings.TrimRight(parsed.String(), "/")
 		}
 	}
 
@@ -279,7 +283,15 @@ func GetConfessionWithComments(c *fiber.Ctx) error {
 	}
 
 	var comments []models.Comment
-	if err := config.DB.Preload("Author").Where("confession_id = ?", id).Order("created_at asc").Find(&comments).Error; err != nil {
+	if err := config.DB.
+		Preload("Author").
+		Preload("Replies", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at asc")
+		}).
+		Preload("Replies.Author").
+		Where("confession_id = ?", id).
+		Order("created_at asc").
+		Find(&comments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch comments"})
 	}
 	confession.Comments = len(comments)
@@ -287,12 +299,10 @@ func GetConfessionWithComments(c *fiber.Ctx) error {
 
 	result := fiber.Map{
 		"confession": confession,
-		"comments":   comments,
+		"comments":   mapPublicComments(comments),
 	}
 
-	// cache fetch result (optional, TTL 60s)
-	data, _ := json.Marshal(result)
-	redis.Client.Set(redis.Ctx, "confessions:"+id+":with_comments", data, 60*time.Second)
+	redis.SetJSON("confessions:"+id+":with_comments", result, 60*time.Second)
 
 	return c.JSON(result)
 }

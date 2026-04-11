@@ -10,6 +10,10 @@ import (
 
 // StartSubscriber listens to Redis pub/sub channels and invalidates cache keys.
 func StartSubscriber(ctx context.Context, wg *sync.WaitGroup) {
+	if Client == nil {
+		return
+	}
+
 	pubsub := Client.Subscribe(ctx,
 		"confessions:confession:created",
 		"confessions:confession:updated",
@@ -41,21 +45,21 @@ func StartSubscriber(ctx context.Context, wg *sync.WaitGroup) {
 				}
 				switch msg.Channel {
 				case "confessions:confession:created", "confessions:confession:deleted":
-					Client.Del(Ctx, "confessions:all")
+					Delete("confessions:all")
 				case "confessions:confession:updated", "confessions:confession:starred":
 					if id := stringValueFromPayload(msg.Payload, "id"); id != "" {
-						Client.Del(Ctx, "confessions:"+id+":with_comments")
+						Delete("confessions:" + id + ":with_comments")
 					}
 				case "confessions:comment:created", "confessions:comment:updated", "confessions:comment:deleted":
 					if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
-						Client.Del(Ctx, "confessions:"+confessionID+":with_comments")
+						Delete("confessions:" + confessionID + ":with_comments")
 					}
 				case "confessions:reaction:updated", "confessions:reaction:removed":
 					if confessionID := stringValueFromPayload(msg.Payload, "confession_id"); confessionID != "" {
-						Client.Del(Ctx, "confessions:"+confessionID+":with_comments")
+						Delete("confessions:" + confessionID + ":with_comments")
 					}
 					if commentID := stringValueFromPayload(msg.Payload, "comment_id"); commentID != "" {
-						Client.Del(Ctx, "comments:"+commentID)
+						Delete("comments:" + commentID)
 					}
 				default:
 					log.Printf("Unhandled channel: %s", msg.Channel)
@@ -67,6 +71,10 @@ func StartSubscriber(ctx context.Context, wg *sync.WaitGroup) {
 
 // StartWebsocketBroadcaster relays Redis events to websocket clients.
 func StartWebsocketBroadcaster(ctx context.Context, wg *sync.WaitGroup, broadcast func(string)) {
+	if Client == nil {
+		return
+	}
+
 	pubsub := Client.PSubscribe(ctx, "confessions:*", "connections:*")
 	ch := pubsub.Channel()
 

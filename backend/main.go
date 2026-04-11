@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -36,11 +37,21 @@ func main() {
 	config.InitDB()
 
 	// Connect to Redis
-	redisAddr := os.Getenv("REDIS_ADDR")
+	redisAddr := strings.TrimSpace(os.Getenv("REDIS_URL"))
 	if redisAddr == "" {
-		redisAddr = "redis:6379"
+		redisAddr = strings.TrimSpace(os.Getenv("REDIS_ADDR"))
 	}
-	redis.ConnectRedis(redisAddr)
+	if redisAddr == "" {
+		redisHost := strings.TrimSpace(os.Getenv("REDIS_HOST"))
+		redisPort := strings.TrimSpace(os.Getenv("REDIS_PORT"))
+		if redisHost != "" {
+			if redisPort == "" {
+				redisPort = "6379"
+			}
+			redisAddr = redisHost + ":" + redisPort
+		}
+	}
+	redisConnected := redis.ConnectRedis(redisAddr)
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -48,7 +59,9 @@ func main() {
 	var workers sync.WaitGroup
 
 	// Start Redis subscriber (background worker)
-	redis.StartSubscriber(shutdownCtx, &workers)
+	if redisConnected {
+		redis.StartSubscriber(shutdownCtx, &workers)
+	}
 
 	// Start Fiber
 	bodyLimit := 1024 * 1024 // 1MB default
@@ -63,6 +76,9 @@ func main() {
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: bodyLimit,
+	})
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"status": "ok"})
 	})
 	app.Use(logger.New())
 
@@ -115,12 +131,18 @@ func main() {
 	}))
 
 	// Redis PubSub -> Broadcast to WebSocket clients
-	redis.StartWebsocketBroadcaster(shutdownCtx, &workers, websockets.Broadcast)
+	if redisConnected {
+		redis.StartWebsocketBroadcaster(shutdownCtx, &workers, websockets.Broadcast)
+	}
 
 	// Enable CORS for frontend
 	allowOrigins := os.Getenv("CORS_ALLOW_ORIGINS")
 	if allowOrigins == "" {
-		allowOrigins = "http://localhost:5173"
+		if frontendBaseURL := strings.TrimSpace(os.Getenv("FRONTEND_BASE_URL")); frontendBaseURL != "" {
+			allowOrigins = frontendBaseURL
+		} else {
+			allowOrigins = "http://localhost:5173"
+		}
 	}
 
 	app.Use(cors.New(cors.Config{
@@ -192,4 +214,3 @@ func main() {
 		log.Println("graceful shutdown timed out")
 	}
 }
-

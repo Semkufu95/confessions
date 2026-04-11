@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -37,6 +36,13 @@ func ReactToConfession(c *fiber.Ctx) error {
 	parsedConfessionID, err := uuid.Parse(confessionID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid confession id"})
+	}
+	exists, err := confessionExists(parsedConfessionID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify confession"})
+	}
+	if !exists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Confession not found"})
 	}
 
 	var reaction models.Reaction
@@ -97,8 +103,7 @@ func ReactToConfession(c *fiber.Ctx) error {
 	}
 
 	// Publish to Redis
-	data, _ := json.Marshal(fiber.Map{"confession_id": confessionID})
-	redis.Client.Publish(redis.Ctx, "confessions:reaction:updated", data)
+	redis.PublishJSON("confessions:reaction:updated", fiber.Map{"confession_id": confessionID})
 
 	return c.JSON(updatedConfession)
 }
@@ -123,6 +128,13 @@ func ReactToComment(c *fiber.Ctx) error {
 	parsedCommentID, err := uuid.Parse(commentID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid comment id"})
+	}
+	exists, err := commentExists(parsedCommentID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to verify comment"})
+	}
+	if !exists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Comment not found"})
 	}
 
 	var reaction models.Reaction
@@ -183,8 +195,7 @@ func ReactToComment(c *fiber.Ctx) error {
 	}
 
 	// Publish to Redis
-	data, _ := json.Marshal(fiber.Map{"comment_id": commentID})
-	redis.Client.Publish(redis.Ctx, "confessions:reaction:updated", data)
+	redis.PublishJSON("confessions:reaction:updated", fiber.Map{"comment_id": commentID})
 
 	return c.JSON(updatedComment)
 }
@@ -252,12 +263,11 @@ func RemoveReaction(c *fiber.Ctx) error {
 		}
 	}
 
-	data, _ := json.Marshal(fiber.Map{
+	redis.PublishJSON("confessions:reaction:removed", fiber.Map{
 		"id":            id,
 		"confession_id": reaction.ConfessionID,
 		"comment_id":    reaction.CommentID,
 	})
-	redis.Client.Publish(redis.Ctx, "confessions:reaction:removed", data)
 
 	return c.JSON(fiber.Map{"message": "Reaction removed"})
 }

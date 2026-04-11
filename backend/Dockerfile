@@ -1,29 +1,22 @@
-# Start from the official Golang image
-FROM golang:1.25-alpine AS dev
+FROM golang:1.25-alpine AS builder
 
-#set environment variables
-ENV GO111MODULE=on \
-    CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
-# set working directory in container
 WORKDIR /app
 
-#Install build dependencies
 COPY go.mod go.sum ./
 RUN go mod download
 
-# copy the rest of the source code
 COPY . .
+RUN go build -o /bin/confessions .
 
-#Expose Fibers default port
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+COPY --from=builder /bin/confessions /usr/local/bin/confessions
+
 EXPOSE 5000
 
-# Install Air for live reloading
-RUN go install github.com/air-verse/air@latest
-ENV PATH="$PATH:/root/go/bin"
-
-
-#Run Command with Air
-CMD ["air", "-c", ".air.toml"]
+CMD ["confessions"]

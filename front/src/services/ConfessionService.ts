@@ -11,10 +11,22 @@ type BackendUser = {
 
 type BackendComment = {
     id: string;
+    confession_id?: string;
     content: string;
     likes?: number;
     boos?: number;
     created_at?: string;
+    updated_at?: string;
+    author?: BackendUser;
+    replies?: BackendReply[];
+};
+
+type BackendReply = {
+    id: string;
+    content: string;
+    likes?: number;
+    created_at?: string;
+    updated_at?: string;
     author?: BackendUser;
 };
 
@@ -54,7 +66,14 @@ function normalizeComment(comment: BackendComment): Comment {
         timeStamp: comment.created_at || new Date().toISOString(),
         likes: comment.likes || 0,
         boos: comment.boos || 0,
-        replies: [],
+        replies: (comment.replies || []).map((reply) => ({
+            id: reply.id,
+            content: reply.content,
+            author: normalizeUser(reply.author),
+            timeStamp: reply.created_at || new Date().toISOString(),
+            likes: reply.likes || 0,
+            isLiked: false,
+        })),
         isLiked: false,
         isBooed: false,
     };
@@ -128,6 +147,10 @@ export const ConfessionService = {
     async comment(confessionId: string, content: string): Promise<Comment> {
         const res = await api.post<BackendComment>(`/comments/${confessionId}`, { content });
         return normalizeComment(res.data);
+    },
+
+    async reply(commentId: string, content: string): Promise<void> {
+        await api.post(`/comments/${commentId}/replies`, { content });
     },
 
     async reactComment(commentId: string, type: "like" | "boo"): Promise<Comment> {

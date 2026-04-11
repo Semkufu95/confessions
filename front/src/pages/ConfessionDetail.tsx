@@ -117,9 +117,10 @@ export function ConfessionDetail() {
         }
     };
 
-    const handleReply = (commentId: string, content: string) => {
+    const handleReply = async (commentId: string, content: string) => {
         if (!user) return;
-        console.log("Adding reply to comment:", commentId, content);
+        await ConfessionService.reply(commentId, content);
+        await getConfessionById(confession.id);
     };
 
     const handleCommentLike = async (commentId: string, type: "like" | "boo" = "like") => {

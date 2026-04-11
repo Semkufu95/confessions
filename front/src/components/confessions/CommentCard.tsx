@@ -10,7 +10,7 @@ import { SafeMultilineText } from '../ui/SafeMultilineText';
 
 interface CommentCardProps {
     comment: Comment;
-    onReply?: (commentId: string, content: string) => void;
+    onReply?: (commentId: string, content: string) => Promise<void>;
     onLike?: (commentId: string) => void;
     onBoo?: (commentId: string) => void;
 }
@@ -20,15 +20,33 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
     const [showReplyForm, setShowReplyForm] = useState(false);
     const [replyContent, setReplyContent] = useState('');
     const [showReplies, setShowReplies] = useState(false);
+    const [isReplying, setIsReplying] = useState(false);
+    const [replyError, setReplyError] = useState('');
 
-    const handleReplySubmit = (e: React.FormEvent) => {
+    const handleReplySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!replyContent.trim() || !user) return;
+        if (!replyContent.trim() || !user || !onReply || isReplying) return;
 
-        onReply?.(comment.id, replyContent);
-        setReplyContent('');
-        setShowReplyForm(false);
-        setShowReplies(true);
+        setIsReplying(true);
+        setReplyError('');
+        try {
+            await onReply(comment.id, replyContent.trim());
+            setReplyContent('');
+            setShowReplyForm(false);
+            setShowReplies(true);
+        } catch (error: unknown) {
+            const message = (
+                typeof error === 'object' &&
+                error !== null &&
+                'response' in error &&
+                typeof (error as { response?: { data?: { error?: unknown } } }).response?.data?.error === 'string'
+                    ? (error as { response?: { data?: { error?: string } } }).response?.data?.error
+                    : 'Could not post reply.'
+            ) || 'Could not post reply.';
+            setReplyError(message);
+        } finally {
+            setIsReplying(false);
+        }
     };
 
     const handleLike = () => {
@@ -155,7 +173,7 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                     rows={2}
                 />
                                 <div className="flex items-center space-x-2">
-                                    <Button type="submit" size="sm" disabled={!replyContent.trim()}>
+                                    <Button type="submit" size="sm" disabled={!replyContent.trim()} loading={isReplying}>
                                         Reply
                                     </Button>
                                     <Button
@@ -167,6 +185,9 @@ export function CommentCard({ comment, onReply, onLike, onBoo }: CommentCardProp
                                         Cancel
                                     </Button>
                                 </div>
+                                {replyError && (
+                                    <p className="text-xs text-red-600 dark:text-red-400">{replyError}</p>
+                                )}
                             </div>
                         </div>
                     </motion.form>
