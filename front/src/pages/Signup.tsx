@@ -9,6 +9,18 @@ import { useAuth } from '../context/AuthContext';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*[^\w\s]).{6,}$/;
 
+function getErrorMessage(error: unknown, fallback: string) {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { error?: unknown } } }).response?.data?.error === 'string'
+    ) {
+        return (error as { response?: { data?: { error?: string } } }).response?.data?.error || fallback;
+    }
+    return fallback;
+}
+
 export function Signup() {
     const [formData, setFormData] = useState({
         username: '',
@@ -50,9 +62,8 @@ export function Signup() {
         try {
             await signup(formData.email.trim(), formData.password, formData.username.trim());
             navigate('/');
-        } catch (err: any) {
-            const message = err?.response?.data?.error || 'Failed to create account. Please try again.';
-            setError(message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Failed to create account. Please try again.'));
         }
     };
 

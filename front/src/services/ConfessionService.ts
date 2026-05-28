@@ -1,5 +1,5 @@
 import { api } from "../api/api";
-import type { Comment, Confession, User } from "../types";
+import type { Comment, Confession, Reply, User } from "../types";
 
 type BackendUser = {
     id: string;
@@ -58,6 +58,17 @@ function normalizeUser(user?: BackendUser): User {
     };
 }
 
+function normalizeReply(reply: BackendReply): Reply {
+    return {
+        id: reply.id,
+        content: reply.content,
+        author: normalizeUser(reply.author),
+        timeStamp: reply.created_at || new Date().toISOString(),
+        likes: reply.likes || 0,
+        isLiked: false,
+    };
+}
+
 function normalizeComment(comment: BackendComment): Comment {
     return {
         id: comment.id,
@@ -66,14 +77,7 @@ function normalizeComment(comment: BackendComment): Comment {
         timeStamp: comment.created_at || new Date().toISOString(),
         likes: comment.likes || 0,
         boos: comment.boos || 0,
-        replies: (comment.replies || []).map((reply) => ({
-            id: reply.id,
-            content: reply.content,
-            author: normalizeUser(reply.author),
-            timeStamp: reply.created_at || new Date().toISOString(),
-            likes: reply.likes || 0,
-            isLiked: false,
-        })),
+        replies: (comment.replies || []).map(normalizeReply),
         isLiked: false,
         isBooed: false,
     };
@@ -149,8 +153,9 @@ export const ConfessionService = {
         return normalizeComment(res.data);
     },
 
-    async reply(commentId: string, content: string): Promise<void> {
-        await api.post(`/comments/${commentId}/replies`, { content });
+    async reply(commentId: string, content: string): Promise<Reply> {
+        const res = await api.post<BackendReply>(`/comments/${commentId}/replies`, { content });
+        return normalizeReply(res.data);
     },
 
     async reactComment(commentId: string, type: "like" | "boo"): Promise<Comment> {

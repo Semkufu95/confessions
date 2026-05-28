@@ -1,0 +1,10 @@
+./auth_controller.go
+./comment_controller.go
+./confession_controller.go
+./connection_controller.go
+./contact_controller.go
+./public_response.go
+./reaction_controller.go
+./resource_helpers.go
+./settings_controller.go
+./stats_controller.go

@@ -158,6 +158,17 @@ func PostReply(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load reply author"})
 	}
 
+	var comment models.Comment
+	if err := config.DB.First(&comment, "id = ?", parsedCommentID).Error; err == nil {
+		redis.PublishJSON("confessions:comment:created", fiber.Map{
+			"id":            reply.ID.String(),
+			"comment_id":    reply.CommentID.String(),
+			"confession_id": comment.ConfessionID.String(),
+			"content":       reply.Content,
+			"author":        mapPublicUser(reply.Author),
+		})
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(mapPublicReply(reply))
 }
 

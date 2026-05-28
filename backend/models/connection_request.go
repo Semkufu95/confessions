@@ -16,5 +16,6 @@ type ConnectionRequest struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 
 	Sender     User       `gorm:"foreignKey:SenderID;references:ID" json:"sender"`
+	Receiver   User       `gorm:"foreignKey:ReceiverID;references:ID" json:"receiver"`
 	Connection Connection `gorm:"foreignKey:ConnectionID;references:ID" json:"connection"`
 }

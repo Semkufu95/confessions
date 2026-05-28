@@ -1,0 +1,10 @@
+./comment.go
+./confession.go
+./connection.go
+./connection_request.go
+./reactions.go
+./reply.go
+./session.go
+./stats_observation.go
+./user.go
+./user_settings.go

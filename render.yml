@@ -1,24 +1,27 @@
 services:
   - type: web
-    name: confession-backend
+    name: confessions-backend
     env: docker
     plan: free
     autoDeploy: true
-    buildCommand: ""
-    startCommand: "./confessions"
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
     envVars:
-      - key: DB_HOST
-        fromService:
-	  name: confessions-db
-	  property: host
-      - key: DB_PORT
-      	value: 5432
-      - key: DB_USER
-      	value: postgres
-      - key: DB_PASSWORD
-        value: password
-      - key: DB_NAME
-        value: confessions
+      - key: DATABASE_URL
+        fromDatabase:
+          name: confessions-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: APP_VERIFY_EMAIL_BASE_URL
+        sync: false
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"
 
 databases:
   - name: confessions-db

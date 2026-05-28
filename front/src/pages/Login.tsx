@@ -6,6 +6,18 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 
+function getErrorMessage(error: unknown, fallback: string) {
+    if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { error?: unknown } } }).response?.data?.error === 'string'
+    ) {
+        return (error as { response?: { data?: { error?: string } } }).response?.data?.error || fallback;
+    }
+    return fallback;
+}
+
 export function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,9 +33,8 @@ export function Login() {
         try {
             await login(email, password);
             navigate('/');
-        } catch (err: any) {
-            const message = err?.response?.data?.error || 'Invalid credentials. Please try again.';
-            setError(message);
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Invalid credentials. Please try again.'));
         }
     };
 

@@ -1,0 +1,3 @@
+# test log
+getenv JWT_SECRET
+getenv SESSION_MAX_LIFETIME

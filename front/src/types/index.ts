@@ -56,6 +56,7 @@ export interface Connection {
     location?: string;
     age?: number;
     interests: string[];
+    requestStatus?: "none" | "pending" | "accepted" | "declined" | "own";
 }
 
 export interface ConnectionRequestResult {
@@ -78,6 +79,7 @@ export interface ConnectionProfile {
 }
 
 export interface FriendFollower {
+    friendId: string;
     senderId: string;
     username: string;
     email: string;
@@ -100,6 +102,7 @@ export interface FriendRequestInboxItem {
 export interface FriendsOverview {
     friends: FriendFollower[];
     pending: FriendRequestInboxItem[];
+    sent: FriendRequestInboxItem[];
 }
 
 export interface CreateConnectionInput {

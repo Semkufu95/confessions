@@ -1,6 +1,6 @@
 
 import React from "react";
-import {motion, type HTMLMotionProps} from "framer-motion";
+import { motion, type HTMLMotionProps } from "framer-motion";
 
 interface ButtonProps extends HTMLMotionProps<'button'> {
     variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -37,12 +37,12 @@ export function Button({
             shadow-sm hover:shadow-md active:shadow-ms`
     };
 
-    const sizes = {
-        sm: 'px-3, py-1.5 text-sm',
+    const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
+        sm: 'px-3 py-1.5 text-sm',
         md: 'px-4 py-2 text-sm',
         lg: 'px-6 py-3 text-base',
     };
-    // @ts-ignore
+
     return (
         <motion.button
             whileHover={{ scale: 1.02 }}

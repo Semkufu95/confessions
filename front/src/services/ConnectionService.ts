@@ -62,6 +62,8 @@ type BackendConnectionProfile = {
 };
 
 type BackendFriendFollower = {
+    friend_id?: string;
+    friendId?: string;
     sender_id?: string;
     senderId?: string;
     username?: string;
@@ -93,6 +95,7 @@ type BackendFriendRequestInboxItem = {
 type BackendFriendsOverview = {
     friends?: BackendFriendFollower[];
     pending?: BackendFriendRequestInboxItem[];
+    sent?: BackendFriendRequestInboxItem[];
 };
 
 function normalizeUser(user?: BackendUser): User {
@@ -140,8 +143,10 @@ function normalizeConnectionProfile(profile: BackendConnectionProfile): Connecti
 }
 
 function normalizeFriendFollower(item: BackendFriendFollower): FriendFollower {
+    const friendId = item.friend_id || item.friendId || item.sender_id || item.senderId || "";
     return {
-        senderId: item.sender_id || item.senderId || "",
+        friendId,
+        senderId: item.sender_id || item.senderId || friendId,
         username: item.username || "Unknown",
         email: item.email || "",
         followedAt: item.followed_at || item.followedAt || new Date().toISOString(),
@@ -206,12 +211,14 @@ export const ConnectionService = {
             return {
                 friends: res.data.map(normalizeFriendFollower),
                 pending: [],
+                sent: [],
             };
         }
 
         return {
             friends: (res.data?.friends || []).map(normalizeFriendFollower),
             pending: (res.data?.pending || []).map(normalizeFriendRequest),
+            sent: (res.data?.sent || []).map(normalizeFriendRequest),
         };
     },
 

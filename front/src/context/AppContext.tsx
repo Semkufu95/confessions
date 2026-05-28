@@ -26,6 +26,7 @@ interface AppContextType {
     connections: Connection[];
     friends: FriendFollower[];
     pendingFriendRequests: FriendRequestInboxItem[];
+    sentFriendRequests: FriendRequestInboxItem[];
     notifications: RealtimeNotification[];
     isLoadingConfessions: boolean;
     confessionsError: string | null;
@@ -40,6 +41,7 @@ interface AppContextType {
     deleteConfession: (confessionId: string) => Promise<void>;
     addConnection: (input: CreateConnectionInput) => Promise<void>;
     addComment: (confessionId: string, content: string) => Promise<void>;
+    addReply: (confessionId: string, commentId: string, content: string) => Promise<void>;
     getConfessionById: (confessionId: string) => Promise<Confession | null>;
     dismissNotification: (notificationId: string) => void;
 }
@@ -234,6 +236,7 @@ function eventTargetUserIDs(event: RealtimeEvent): string[] {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useApp() {
     const context = useContext(AppContext);
     if (context === undefined) {
@@ -258,6 +261,7 @@ export function AppProvider({ children }: AppProviderProps) {
     const [connections, setConnections] = useState<Connection[]>([]);
     const [friends, setFriends] = useState<FriendFollower[]>([]);
     const [pendingFriendRequests, setPendingFriendRequests] = useState<FriendRequestInboxItem[]>([]);
+    const [sentFriendRequests, setSentFriendRequests] = useState<FriendRequestInboxItem[]>([]);
     const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
     const [starredIds, setStarredIds] = useState<string[]>(() => {
         const saved = localStorage.getItem("starredConfessionIds");
@@ -345,6 +349,7 @@ export function AppProvider({ children }: AppProviderProps) {
         if (!user) {
             setFriends([]);
             setPendingFriendRequests([]);
+            setSentFriendRequests([]);
             return;
         }
 
@@ -352,10 +357,12 @@ export function AppProvider({ children }: AppProviderProps) {
             const data = await ConnectionService.getMyFriends();
             setFriends(data.friends);
             setPendingFriendRequests(data.pending);
+            setSentFriendRequests(data.sent);
         } catch (error) {
             console.error("Failed to fetch friends:", error);
             setFriends([]);
             setPendingFriendRequests([]);
+            setSentFriendRequests([]);
         }
     };
 
@@ -499,7 +506,46 @@ export function AppProvider({ children }: AppProviderProps) {
         }
     };
 
+    const addReply = async (confessionId: string, commentId: string, content: string) => {
+        try {
+            const reply = await ConfessionService.reply(commentId, content);
+            setConfessions((prev) =>
+                prev.map((confession) => {
+                    if (confession.id !== confessionId) return confession;
+                    const comments = confession.comments.map((comment: Comment) =>
+                        comment.id === commentId
+                            ? {
+                                  ...comment,
+                                  replies: [...comment.replies, reply],
+                              }
+                            : comment
+                    );
+                    return { ...confession, comments };
+                })
+            );
+        } catch (error) {
+            console.error("Failed to add reply:", error);
+            throw error;
+        }
+    };
+
     const toggleLike = async (confessionId: string, type: "like" | "boo") => {
+        let previousConfessions: Confession[] = [];
+        setConfessions((prev) => {
+            previousConfessions = prev;
+            return prev.map((confession) => {
+                if (confession.id !== confessionId) return confession;
+                const wasLiked = Boolean(confession.isLiked);
+                const wasBooed = Boolean(confession.isBooed);
+                return {
+                    ...confession,
+                    likes: confession.likes + (type === "like" && !wasLiked ? 1 : 0) - (type === "boo" && wasLiked ? 1 : 0),
+                    boos: confession.boos + (type === "boo" && !wasBooed ? 1 : 0) - (type === "like" && wasBooed ? 1 : 0),
+                    isLiked: type === "like",
+                    isBooed: type === "boo",
+                };
+            });
+        });
         try {
             const updated = await ConfessionService.reactConfession(confessionId, type);
             setConfessions((prev) =>
@@ -517,11 +563,32 @@ export function AppProvider({ children }: AppProviderProps) {
             );
         } catch (error) {
             console.error("Failed to react to confession:", error);
+            setConfessions(previousConfessions);
             throw error;
         }
     };
 
     const toggleCommentLike = async (confessionId: string, commentId: string, type: "like" | "boo") => {
+        let previousConfessions: Confession[] = [];
+        setConfessions((prev) => {
+            previousConfessions = prev;
+            return prev.map((confession) => {
+                if (confession.id !== confessionId) return confession;
+                const comments = confession.comments.map((comment: Comment) => {
+                    if (comment.id !== commentId) return comment;
+                    const wasLiked = Boolean(comment.isLiked);
+                    const wasBooed = Boolean(comment.isBooed);
+                    return {
+                        ...comment,
+                        likes: comment.likes + (type === "like" && !wasLiked ? 1 : 0) - (type === "boo" && wasLiked ? 1 : 0),
+                        boos: (comment.boos || 0) + (type === "boo" && !wasBooed ? 1 : 0) - (type === "like" && wasBooed ? 1 : 0),
+                        isLiked: type === "like",
+                        isBooed: type === "boo",
+                    };
+                });
+                return { ...confession, comments };
+            });
+        });
         try {
             const updated = await ConfessionService.reactComment(commentId, type);
             setConfessions((prev) =>
@@ -543,11 +610,37 @@ export function AppProvider({ children }: AppProviderProps) {
             );
         } catch (error) {
             console.error("Failed to react to comment:", error);
+            setConfessions(previousConfessions);
             throw error;
         }
     };
 
     const toggleStar = async (confessionId: string) => {
+        if (starredIds.includes(confessionId)) {
+            setStarredIds((prev) => {
+                const next = prev.filter((id) => id !== confessionId);
+                localStorage.setItem("starredConfessionIds", JSON.stringify(next));
+                return next;
+            });
+            setConfessions((prev) =>
+                prev.map((confession) =>
+                    confession.id === confessionId
+                        ? { ...confession, isStarred: false, stars: Math.max(0, confession.stars - 1) }
+                        : confession
+                )
+            );
+            return;
+        }
+
+        let previousConfessions: Confession[] = [];
+        setConfessions((prev) => {
+            previousConfessions = prev;
+            return prev.map((confession) =>
+                confession.id === confessionId
+                    ? { ...confession, stars: confession.stars + 1, isStarred: true }
+                    : confession
+            );
+        });
         try {
             const updated = await ConfessionService.star(confessionId);
             setConfessions((prev) =>
@@ -569,6 +662,7 @@ export function AppProvider({ children }: AppProviderProps) {
             });
         } catch (error) {
             console.error("Failed to star confession:", error);
+            setConfessions(previousConfessions);
             throw error;
         }
     };
@@ -577,8 +671,12 @@ export function AppProvider({ children }: AppProviderProps) {
         try {
             const detailed = await ConfessionService.getWithComments(confessionId);
             detailed.isStarred = starredIds.includes(confessionId);
-            setConfessions((prev) =>
-                prev.map((item) =>
+            setConfessions((prev) => {
+                const exists = prev.some((item) => item.id === confessionId);
+                if (!exists) {
+                    return [detailed, ...prev];
+                }
+                return prev.map((item) =>
                     item.id === confessionId
                         ? {
                               ...item,
@@ -586,10 +684,10 @@ export function AppProvider({ children }: AppProviderProps) {
                               isLiked: item.isLiked,
                               isBooed: item.isBooed,
                               isStarred: detailed.isStarred,
-                          }
+                        }
                         : item
-                )
-            );
+                );
+            });
             return detailed;
         } catch (error) {
             console.error("Failed to fetch confession detail:", error);
@@ -612,14 +710,38 @@ export function AppProvider({ children }: AppProviderProps) {
         [confessions, starredIds]
     );
 
+    const connectionsWithStatus = useMemo(() => {
+        const pendingByConnectionID = new Set(
+            sentFriendRequests.filter((item) => item.status === "pending").map((item) => item.connectionId)
+        );
+        const acceptedByConnectionID = new Set([
+            ...sentFriendRequests.filter((item) => item.status === "accepted").map((item) => item.connectionId),
+            ...friends.map((friend) => friend.latestConnectionId),
+        ]);
+
+        return connections.map((connection) => {
+            if (user?.id && connection.author.id === user.id) {
+                return { ...connection, requestStatus: "own" as const };
+            }
+            if (acceptedByConnectionID.has(connection.id)) {
+                return { ...connection, requestStatus: "accepted" as const };
+            }
+            if (pendingByConnectionID.has(connection.id)) {
+                return { ...connection, requestStatus: "pending" as const };
+            }
+            return { ...connection, requestStatus: "none" as const };
+        });
+    }, [connections, friends, sentFriendRequests, user?.id]);
+
     const value = {
         darkMode,
         toggleDarkMode,
         confessions,
         starredConfessions,
-        connections,
+        connections: connectionsWithStatus,
         friends,
         pendingFriendRequests,
+        sentFriendRequests,
         notifications,
         isLoadingConfessions,
         confessionsError,
@@ -634,6 +756,7 @@ export function AppProvider({ children }: AppProviderProps) {
         deleteConfession,
         addConnection,
         addComment,
+        addReply,
         getConfessionById,
         dismissNotification,
     };

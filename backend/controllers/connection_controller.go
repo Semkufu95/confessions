@@ -67,6 +67,7 @@ type connectionProfileResponse struct {
 }
 
 type friendFollowerResponse struct {
+	FriendID              uuid.UUID `json:"friend_id"`
 	SenderID              uuid.UUID `json:"sender_id"`
 	Username              string    `json:"username"`
 	Email                 string    `json:"email"`
@@ -89,6 +90,7 @@ type friendRequestInboxResponse struct {
 type friendsOverviewResponse struct {
 	Friends []friendFollowerResponse     `json:"friends"`
 	Pending []friendRequestInboxResponse `json:"pending"`
+	Sent    []friendRequestInboxResponse `json:"sent"`
 }
 
 func GetAllConnections(c *fiber.Ctx) error {
@@ -281,8 +283,9 @@ func GetMyFriends(c *fiber.Ctx) error {
 	var acceptedRequests []models.ConnectionRequest
 	if err := config.DB.
 		Preload("Sender").
+		Preload("Receiver").
 		Preload("Connection").
-		Where("receiver_id = ? AND status = ?", userID, "accepted").
+		Where("(receiver_id = ? OR sender_id = ?) AND status = ?", userID, userID, "accepted").
 		Order("created_at desc").
 		Find(&acceptedRequests).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load friends"})
@@ -291,15 +294,23 @@ func GetMyFriends(c *fiber.Ctx) error {
 	seen := make(map[uuid.UUID]struct{})
 	friends := make([]friendFollowerResponse, 0, len(acceptedRequests))
 	for _, item := range acceptedRequests {
-		if _, exists := seen[item.SenderID]; exists {
+		friendID := item.SenderID
+		friend := item.Sender
+		if item.SenderID == userID {
+			friendID = item.ReceiverID
+			friend = item.Receiver
+		}
+
+		if _, exists := seen[friendID]; exists {
 			continue
 		}
-		seen[item.SenderID] = struct{}{}
+		seen[friendID] = struct{}{}
 
 		friends = append(friends, friendFollowerResponse{
-			SenderID:              item.SenderID,
-			Username:              item.Sender.Username,
-			Email:                 item.Sender.Email,
+			FriendID:              friendID,
+			SenderID:              friendID,
+			Username:              friend.Username,
+			Email:                 friend.Email,
 			FollowedAt:            item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			LatestConnectionID:    item.ConnectionID,
 			LatestConnectionTitle: item.Connection.Title,
@@ -330,9 +341,34 @@ func GetMyFriends(c *fiber.Ctx) error {
 		})
 	}
 
+	var sentRequests []models.ConnectionRequest
+	if err := config.DB.
+		Preload("Receiver").
+		Preload("Connection").
+		Where("sender_id = ? AND status IN ?", userID, []string{"pending", "accepted"}).
+		Order("created_at desc").
+		Find(&sentRequests).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load sent requests"})
+	}
+
+	sent := make([]friendRequestInboxResponse, 0, len(sentRequests))
+	for _, item := range sentRequests {
+		sent = append(sent, friendRequestInboxResponse{
+			RequestID:       item.ID,
+			ConnectionID:    item.ConnectionID,
+			ConnectionTitle: item.Connection.Title,
+			SenderID:        item.ReceiverID,
+			Username:        item.Receiver.Username,
+			Email:           item.Receiver.Email,
+			Status:          item.Status,
+			RequestedAt:     item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+
 	return c.JSON(friendsOverviewResponse{
 		Friends: friends,
 		Pending: pending,
+		Sent:    sent,
 	})
 }
 

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Users, Heart, UserPlus, Filter } from 'lucide-react';
-// @ts-ignore
 import { ConnectionCard } from '../components/connections/ConnectionCard';
 import { CreateConnection } from '../components/connections/CreateConnection';
 import { Button } from '../components/ui/Button';
@@ -11,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import type { CreateConnectionInput } from '../types';
 
 export function Connections() {
-    const { connections, addConnection } = useApp();
+    const { connections, addConnection, refreshFriends } = useApp();
     const { user } = useAuth();
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'all' | 'love' | 'friendship'>('all');
@@ -164,7 +163,7 @@ export function Connections() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 * index }}
                             >
-                                <ConnectionCard connection={connection} />
+                                <ConnectionCard connection={connection} onStatusChange={refreshFriends} />
                             </motion.div>
                         ))
                     )}

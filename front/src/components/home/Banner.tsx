@@ -10,9 +10,6 @@ export function Banner() {
         { icon: Star, text: 'Authentic', delay: 0.4},
     ];
 
-    // @ts-ignore
-    // @ts-ignore
-    // @ts-ignore
     return (
         <motion.div
         initial={{ opacity: 0, y: 20}}
