@@ -6,7 +6,7 @@ import type {Connection} from '../../types';
 import { formatTimeAgo } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ConnectionService } from '../../services/ConnectionService';
 
 interface ConnectionCardProps {
@@ -20,6 +20,10 @@ export function ConnectionCard({ connection, onStatusChange }: ConnectionCardPro
     const [isConnecting, setIsConnecting] = useState(false);
     const [connectMessage, setConnectMessage] = useState('');
     const [localStatus, setLocalStatus] = useState<Connection["requestStatus"] | undefined>(connection.requestStatus);
+
+    useEffect(() => {
+        setLocalStatus(connection.requestStatus);
+    }, [connection.requestStatus]);
 
     const categoryColors = {
         love: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',

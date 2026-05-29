@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, UserCheck, UserRoundX, Users } from "lucide-react";
+import { Check, Send, UserCheck, UserRoundX, Users } from "lucide-react";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { useApp } from "../context/AppContext";
@@ -9,7 +9,7 @@ import { formatTimeAgo } from "../utils/dateUtils";
 
 export function Friends() {
     const { user } = useAuth();
-    const { friends, pendingFriendRequests, refreshFriends, respondToFriendRequest } = useApp();
+    const { friends, pendingFriendRequests, sentFriendRequests, refreshFriends, respondToFriendRequest } = useApp();
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
     const [requestError, setRequestError] = useState<string | null>(null);
 
@@ -133,6 +133,46 @@ export function Friends() {
                 <Card className="p-5">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
+                            Sent Requests
+                        </h2>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{sentFriendRequests.length}</span>
+                    </div>
+
+                    {sentFriendRequests.length === 0 ? (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 tracking-tight">No sent requests yet.</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {sentFriendRequests.map((request) => (
+                                <div
+                                    key={request.requestId}
+                                    className="rounded-xl border border-gray-200 dark:border-gray-700 p-3"
+                                >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                                                @{request.username}
+                                            </p>
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 tracking-tight">
+                                                On: {request.connectionTitle}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 tracking-tight">
+                                                {formatTimeAgo(request.requestedAt)}
+                                            </p>
+                                        </div>
+                                        <div className="inline-flex w-fit items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                                            <Send size={13} />
+                                            {request.status === "accepted" ? "Accepted" : "Pending"}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+
+                <Card className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
                             Friends List
                         </h2>
                         <span className="text-sm text-gray-600 dark:text-gray-400">{friends.length}</span>
@@ -144,7 +184,7 @@ export function Friends() {
                         <div className="space-y-3">
                             {friends.map((friend) => (
                                 <div
-                                    key={`${friend.senderId}-${friend.followedAt}`}
+                                    key={`${friend.friendId || friend.senderId}-${friend.followedAt}`}
                                     className="rounded-xl border border-gray-200 dark:border-gray-700 p-3"
                                 >
                                     <div className="flex items-start justify-between gap-3">
